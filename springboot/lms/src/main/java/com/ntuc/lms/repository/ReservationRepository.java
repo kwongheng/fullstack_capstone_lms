@@ -7,8 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.ntuc.lms.model.Reservation;
 
-public interface ReservationRepository extends JpaRepository<Reservation, Long> {  // Fixed: Long
+public interface ReservationRepository extends JpaRepository<Reservation, Integer> {  
     List<Reservation> findByFulfilledFalse();  // Fixed: Add
 
-    Optional<Reservation> findByFulfilledFalseAndMemberUserIdAndBookId(Long memberUserId, Long bookId);  // For unique
+    Optional<Reservation> findByFulfilledFalseAndMemberUserIdAndBookId(Integer memberUserId, Integer bookId);  // For unique
 }

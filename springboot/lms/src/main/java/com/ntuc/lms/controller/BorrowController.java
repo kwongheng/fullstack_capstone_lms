@@ -45,16 +45,16 @@ public class BorrowController {
  }
 
  @PatchMapping("/{id}/return")
- public ResponseEntity<Borrow> returnBook(@PathVariable Long id) {
+ public ResponseEntity<Borrow> returnBook(@PathVariable Integer id) {
      Borrow returned = borrowService.returnBook(id);
      return ResponseEntity.ok(returned);
  }
 
  @PatchMapping("/{id}/renew")
- public ResponseEntity<Borrow> renewBook(@PathVariable Long id) {
+ public ResponseEntity<Borrow> renewBook(@PathVariable Integer id) {
      Borrow renewed = borrowService.renewBook(id);
      return ResponseEntity.ok(renewed);
  }
 }
 
-record BorrowRequest(Long memberUserId, Long bookId) {}
+record BorrowRequest(Integer memberUserId, Integer bookId) {}

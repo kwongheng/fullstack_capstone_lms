@@ -35,7 +35,7 @@ public class UserController {
  }
 
  @GetMapping("/{id}")
- public ResponseEntity<User> getUserById(@PathVariable Long id) {
+ public ResponseEntity<User> getUserById(@PathVariable Integer id) {
      User user = userService.getById(id);
      return ResponseEntity.ok(user);
  }
@@ -47,13 +47,13 @@ public class UserController {
  }
 
  @PutMapping("/{id}")
- public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User user) {
+ public ResponseEntity<User> updateUser(@PathVariable Integer id, @Valid @RequestBody User user) {
      User updated = userService.updateUser(id, user);
      return ResponseEntity.ok(updated);
  }
 
  @DeleteMapping("/{id}")
- public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+ public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
      userService.deleteUser(id);
      return ResponseEntity.noContent().build();
  }

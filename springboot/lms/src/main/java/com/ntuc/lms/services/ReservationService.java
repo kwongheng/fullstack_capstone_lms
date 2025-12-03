@@ -31,7 +31,7 @@ public class ReservationService {
     }
 
     @Transactional
-    public Reservation reserveBook(Long memberUserId, Long bookId) {  // Fixed: Names, types
+    public Reservation reserveBook(Integer memberUserId, Integer bookId) {  // Fixed: Names, types
         // Fixed: Enforce UQ_ACTIVE_RESERVATION
         if (reservationRepository.findByFulfilledFalseAndMemberUserIdAndBookId(memberUserId, bookId).isPresent()) {
             throw new IllegalStateException("Active reservation exists");
@@ -48,7 +48,7 @@ public class ReservationService {
     }
 
     @Transactional
-    public Reservation fulfillReservation(Long id) {
+    public Reservation fulfillReservation(Integer id) {
         Reservation r = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
         r.setFulfilled(true);
@@ -56,7 +56,7 @@ public class ReservationService {
     }
 
     @Transactional
-    public void cancelReservation(Long id) {
+    public void cancelReservation(Integer id) {
         reservationRepository.deleteById(id);
     }
 }

@@ -32,7 +32,7 @@ public class BorrowService {
      return borrowRepository.findByReturnedFalse();
  }
 
- public Borrow borrowBook(Long memberId, Long bookId) {
+ public Borrow borrowBook(Integer memberId, Integer bookId) {
      Member member = memberRepository.findById(memberId)
              .orElseThrow(() -> new RuntimeException("Member not found"));
      Book book = bookRepository.findById(bookId)
@@ -51,7 +51,7 @@ public class BorrowService {
      return borrowRepository.save(borrow);
  }
 
- public Borrow returnBook(Long borrowId) {
+ public Borrow returnBook(Integer borrowId) {
      Borrow borrow = borrowRepository.findById(borrowId)
              .orElseThrow(() -> new RuntimeException("Borrow record not found"));
      if (borrow.isReturned()) {
@@ -65,7 +65,7 @@ public class BorrowService {
      return borrowRepository.save(borrow);
  }
 
- public Borrow renewBook(Long borrowId) {
+ public Borrow renewBook(Integer borrowId) {
      Borrow borrow = borrowRepository.findById(borrowId)
              .orElseThrow(() -> new RuntimeException("Borrow record not found"));
      if (borrow.getTimesRenew() >= 2) {

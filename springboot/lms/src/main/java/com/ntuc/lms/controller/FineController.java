@@ -43,10 +43,10 @@ public class FineController {
  }
 
  @PatchMapping("/{id}/pay")
- public ResponseEntity<Fine> payFine(@PathVariable Long id) {
+ public ResponseEntity<Fine> payFine(@PathVariable Integer id) {
      Fine paid = fineService.payFine(id);
      return ResponseEntity.ok(paid);
  }
 }
 
-record FineRequest(Long borrowId, BigDecimal amount) {}
+record FineRequest(Integer borrowId, BigDecimal amount) {}

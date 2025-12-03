@@ -34,7 +34,7 @@ public class BookController {
  }
 
  @GetMapping("/{id}")
- public ResponseEntity<Book> getBookById(@PathVariable Long id) {
+ public ResponseEntity<Book> getBookById(@PathVariable Integer id) {
      return ResponseEntity.ok(bookService.getById(id));
  }
 
@@ -50,20 +50,20 @@ public class BookController {
  }
 
  @PutMapping("/{id}")
- public ResponseEntity<Book> updateBook(@PathVariable Long id, @Valid @RequestBody Book book) {
+ public ResponseEntity<Book> updateBook(@PathVariable Integer id, @Valid @RequestBody Book book) {
      Book updated = bookService.updateBook(id, book);
      return ResponseEntity.ok(updated);
  }
 
  @PatchMapping("/{id}/copies")
- public ResponseEntity<Book> updateCopies(@PathVariable Long id,
+ public ResponseEntity<Book> updateCopies(@PathVariable Integer id,
                                           @RequestBody CopiesUpdateRequest request) {
      Book updated = bookService.updateCopies(id, request.total(), request.available());
      return ResponseEntity.ok(updated);
  }
 
  @DeleteMapping("/{id}")
- public ResponseEntity<Void> deleteBook(@PathVariable Long id) {
+ public ResponseEntity<Void> deleteBook(@PathVariable Integer id) {
      bookService.delete(id);
      return ResponseEntity.noContent().build();
  }

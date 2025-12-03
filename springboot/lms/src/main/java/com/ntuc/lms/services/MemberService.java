@@ -23,12 +23,12 @@ public class MemberService {
      return memberRepository.findAll();
  }
 
- public Member getByUserId(Long userId) {
+ public Member getByUserId(Integer userId) {
      return memberRepository.findById(userId)
              .orElseThrow(() -> new RuntimeException("Member not found"));
  }
 
- public Member createMember(Long userId, String memberId) {
+ public Member createMember(Integer userId, String memberId) {
      User user = userRepository.findById(userId)
              .orElseThrow(() -> new RuntimeException("User not found"));
      Member member = new Member();

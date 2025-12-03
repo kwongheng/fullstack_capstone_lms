@@ -19,7 +19,7 @@ public class BookService {
      return bookRepository.findAll();
  }
 
- public Book getById(Long id) {
+ public Book getById(Integer id) {
      return bookRepository.findById(id)
              .orElseThrow(() -> new RuntimeException("Book not found"));
  }
@@ -33,7 +33,7 @@ public class BookService {
      return bookRepository.save(book);
  }
 
- public Book updateBook(Long id, Book bookDetails) {
+ public Book updateBook(Integer id, Book bookDetails) {
      Book book = getById(id);
      book.setIsbn(bookDetails.getIsbn());
      book.setTitle(bookDetails.getTitle());
@@ -46,14 +46,14 @@ public class BookService {
      return bookRepository.save(book);
  }
 
- public Book updateCopies(Long id, int total, int available) {
+ public Book updateCopies(Integer id, int total, int available) {
      Book book = getById(id);
      book.setTotalCopies(total);
      book.setAvailableCopies(available);
      return bookRepository.save(book);
  }
 
- public void delete(Long id) {
+ public void delete(Integer id) {
      bookRepository.deleteById(id);
  }
 }

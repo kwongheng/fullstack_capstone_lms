@@ -30,7 +30,7 @@ public class FineService {
      return fineRepository.findByPaidFalse();
  }
 
- public Fine createFine(Long borrowId, BigDecimal amount) {
+ public Fine createFine(Integer borrowId, BigDecimal amount) {
      Borrow borrow = borrowRepository.findById(borrowId)
              .orElseThrow(() -> new RuntimeException("Borrow not found"));
      Fine fine = new Fine();
@@ -39,7 +39,7 @@ public class FineService {
      return fineRepository.save(fine);
  }
 
- public Fine payFine(Long id) {
+ public Fine payFine(Integer id) {
      Fine fine = fineRepository.findById(id)
              .orElseThrow(() -> new RuntimeException("Fine not found"));
      fine.setPaid(true);

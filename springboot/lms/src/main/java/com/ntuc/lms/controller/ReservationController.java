@@ -46,16 +46,16 @@ public class ReservationController {
  }
 
  @PatchMapping("/{id}/fulfill")
- public ResponseEntity<Reservation> fulfillReservation(@PathVariable Long id) {
+ public ResponseEntity<Reservation> fulfillReservation(@PathVariable Integer id) {
      Reservation fulfilled = reservationService.fulfillReservation(id);
      return ResponseEntity.ok(fulfilled);
  }
 
  @DeleteMapping("/{id}")
- public ResponseEntity<Void> cancelReservation(@PathVariable Long id) {
+ public ResponseEntity<Void> cancelReservation(@PathVariable Integer id) {
      reservationService.cancelReservation(id);
      return ResponseEntity.noContent().build();
  }
 }
 
-record ReservationRequest(Long memberUserId, Long bookId) {}
+record ReservationRequest(Integer memberUserId, Integer bookId) {}

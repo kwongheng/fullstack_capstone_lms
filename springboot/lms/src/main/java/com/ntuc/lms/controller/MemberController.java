@@ -30,7 +30,7 @@ public class MemberController {
  }
 
  @GetMapping("/{userId}")
- public ResponseEntity<Member> getMemberByUserId(@PathVariable Long userId) {
+ public ResponseEntity<Member> getMemberByUserId(@PathVariable Integer userId) {
      return ResponseEntity.ok(memberService.getByUserId(userId));
  }
 
@@ -42,4 +42,4 @@ public class MemberController {
 }
 
 //Simple DTO to avoid exposing User entity directly
-record MemberRequest(Long userId, String memberId) {}
+record MemberRequest(Integer userId, String memberId) {}
