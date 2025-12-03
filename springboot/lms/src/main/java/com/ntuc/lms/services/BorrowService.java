@@ -71,7 +71,7 @@ public class BorrowService {
      if (borrow.getTimesRenew() >= 2) {
          throw new RuntimeException("Maximum renewals reached");
      }
-     borrow.setTimesRenew(borrow.getTimesRenew() + 1);
+     borrow.renew();
      return borrowRepository.save(borrow);
  }
 

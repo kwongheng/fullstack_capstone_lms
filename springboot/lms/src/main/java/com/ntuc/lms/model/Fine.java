@@ -1,47 +1,34 @@
 package com.ntuc.lms.model;
 
+import jakarta.persistence.*;
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 //model/Fine.java
 @Entity
 @Table(name = "FINE")
-@Getter @Setter @NoArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Fine {
- @Id
- @GeneratedValue(strategy = GenerationType.IDENTITY)
- private Long id;
 
- @OneToOne
- @JoinColumn(name = "borrow_id", nullable = false)
- private Borrow borrow;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
- @Column(nullable = false, precision = 6, scale = 2)
- private BigDecimal amount;
+    @OneToOne
+    @JoinColumn(name = "borrow_id", nullable = false, unique = true)
+    private Borrow borrow;
 
- @Column(name = "is_paid", nullable = false)
- private boolean paid = false;
+    @Column(nullable = false, precision = 6, scale = 2)
+    private BigDecimal amount;
 
- private LocalDateTime paidAt;
+    @Column(name = "is_paid", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private boolean isPaid = false;
 
- @PrePersist @PreUpdate
- private void validate() {
-     if (amount.compareTo(new BigDecimal("20.00")) > 0)
-         throw new IllegalArgumentException("Fine cannot exceed 20.00");
-     if (paid && paidAt == null) paidAt = LocalDateTime.now();
- }
+    @Column(name = "paid_at")
+    private LocalDateTime paidAt;
 }

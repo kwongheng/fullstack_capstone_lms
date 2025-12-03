@@ -11,44 +11,52 @@ import com.ntuc.lms.repository.BookRepository;
 import com.ntuc.lms.repository.MemberRepository;
 import com.ntuc.lms.repository.ReservationRepository;
 
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
-//service/ReservationService.java
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ReservationService {
- private final ReservationRepository reservationRepository;
- private final MemberRepository memberRepository;
- private final BookRepository bookRepository;
+    private final ReservationRepository reservationRepository;
+    private final MemberRepository memberRepository;
+    private final BookRepository bookRepository;
 
- public List<Reservation> getAll() {
-     return reservationRepository.findAll();
- }
+    public List<Reservation> getAll() {
+        return reservationRepository.findAll();
+    }
 
- public List<Reservation> getActiveReservations() {
-     return reservationRepository.findByFulfilledFalse();
- }
+    public List<Reservation> getActiveReservations() {
+        return reservationRepository.findByFulfilledFalse();
+    }
 
- public Reservation reserveBook(Long integer, Long integer2) {
-     Member member = memberRepository.findById(integer)
-             .orElseThrow(() -> new RuntimeException("Member not found"));
-     Book book = bookRepository.findById(integer2)
-             .orElseThrow(() -> new RuntimeException("Book not found"));
+    @Transactional
+    public Reservation reserveBook(Long memberUserId, Long bookId) {  // Fixed: Names, types
+        // Fixed: Enforce UQ_ACTIVE_RESERVATION
+        if (reservationRepository.findByFulfilledFalseAndMemberUserIdAndBookId(memberUserId, bookId).isPresent()) {
+            throw new IllegalStateException("Active reservation exists");
+        }
+        Member member = memberRepository.findById(memberUserId)
+                .orElseThrow(() -> new RuntimeException("Member not found"));
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("Book not found"));
 
-     Reservation r = new Reservation();
-     r.setMember(member);
-     r.setBook(book);
-     return reservationRepository.save(r);
- }
+        Reservation r = new Reservation();
+        r.setMember(member);
+        r.setBook(book);
+        return reservationRepository.save(r);
+    }
 
- public Reservation fulfillReservation(Long id) {
-     Reservation r = reservationRepository.findById(id)
-             .orElseThrow(() -> new RuntimeException("Reservation not found"));
-     r.setFulfilled(true);
-     return reservationRepository.save(r);
- }
+    @Transactional
+    public Reservation fulfillReservation(Long id) {
+        Reservation r = reservationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Reservation not found"));
+        r.setFulfilled(true);
+        return reservationRepository.save(r);
+    }
 
- public void cancelReservation(Long id) {
-     reservationRepository.deleteById(id);
- }
+    @Transactional
+    public void cancelReservation(Long id) {
+        reservationRepository.deleteById(id);
+    }
 }

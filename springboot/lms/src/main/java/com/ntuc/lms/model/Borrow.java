@@ -1,62 +1,62 @@
 package com.ntuc.lms.model;
 
+import jakarta.persistence.*;
+import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 //model/Borrow.java
 @Entity
-@Table(name = "BORROW")
-@Getter @Setter @NoArgsConstructor
+@Table(name = "BORROW",
+    uniqueConstraints = @UniqueConstraint(name = "UQ_USER_BOOK_ACTIVE", columnNames = {"user_id", "book_id", "is_returned"}),
+    indexes = @Index(name = "IDX_BORROW_DATES", columnList = "borrow_date, due_date")
+)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Borrow {
- @Id
- @GeneratedValue(strategy = GenerationType.IDENTITY)
- private Long id;
 
- @ManyToOne
- @JoinColumn(name = "user_id", nullable = false)
- private Member member;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
- @ManyToOne
- @JoinColumn(name = "book_id", nullable = false)
- private Book book;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private Member member;
 
- @Column(name = "borrow_date", nullable = false, updatable = false)
- private LocalDateTime borrowDate = LocalDateTime.now();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "book_id", nullable = false)
+    private Book book;
 
- @Column(name = "due_date", insertable = false, updatable = false)
- private LocalDateTime dueDate;
+    @Column(name = "borrow_date", nullable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+    @Builder.Default
+    private LocalDateTime borrowDate = LocalDateTime.now();
 
- private LocalDateTime returnDate;
+    @Column(name = "due_date", insertable = false, updatable = false,
+            columnDefinition = "DATETIME GENERATED ALWAYS AS (borrow_date + INTERVAL 14 DAY) STORED")
+    private LocalDateTime dueDate;
 
- @Column(name = "fine_amount", precision = 6, scale = 2)
- private BigDecimal fineAmount = BigDecimal.ZERO;
+    @Column(name = "return_date")
+    private LocalDateTime returnDate;
 
- @Column(name = "times_renew")
- private Integer timesRenew = 0;
+    @Column(name = "fine_amount", precision = 6, scale = 2, columnDefinition = "DECIMAL(6,2) DEFAULT 0.00")
+    @Builder.Default
+    private BigDecimal fineAmount = BigDecimal.ZERO;
 
- @Column(name = "is_returned", nullable = false)
- private boolean returned = false;
+    @Column(name = "times_renew", nullable = false, 
+            columnDefinition = "TINYINT DEFAULT 0 CHECK (times_renew <= 2)")
+    @Builder.Default
+    private byte timesRenew = 0;
 
- @PreUpdate @PrePersist
- private void validate() {
-     if (timesRenew > 2) throw new IllegalArgumentException("Max 2 renewals");
-     if (fineAmount.compareTo(new BigDecimal("20.00")) > 0)
-         throw new IllegalArgumentException("Fine cannot exceed 20.00");
-     if (returnDate != null && returnDate.isBefore(borrowDate))
-         throw new IllegalArgumentException("Return date cannot be before borrow date");
- }
+    public void renew() {
+        if (timesRenew >= 2) {
+            throw new IllegalStateException("Book can only be renewed twice");
+        }
+        timesRenew++;
+    }
+
+    @Column(name = "is_returned", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private boolean isReturned = false;
 }

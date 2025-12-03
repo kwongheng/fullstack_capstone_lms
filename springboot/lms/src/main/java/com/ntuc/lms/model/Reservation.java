@@ -1,42 +1,51 @@
 package com.ntuc.lms.model;
 
+import jakarta.persistence.*;
+import lombok.*;
 import java.time.LocalDateTime;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 //model/Reservation.java
 @Entity
-@Table(name = "RESERVATION")
-@Getter @Setter @NoArgsConstructor
+@Table(name = "RESERVATION",
+        uniqueConstraints = @UniqueConstraint(
+                name = "UQ_ACTIVE_RESERVATION",
+                columnNames = {"user_id", "book_id", "is_fulfilled"}
+        )
+)
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder(toBuilder = true)
 public class Reservation {
- @Id
- @GeneratedValue(strategy = GenerationType.IDENTITY)
- private Long id;
 
- @ManyToOne
- @JoinColumn(name = "user_id", nullable = false)
- private Member member;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
- @ManyToOne
- @JoinColumn(name = "book_id", nullable = false)
- private Book book;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private Member member;
 
- @Column(name = "reservation_date", nullable = false, updatable = false)
- private LocalDateTime reservationDate = LocalDateTime.now();
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "book_id", nullable = false)
+    private Book book;
 
- @Column(name = "expiry_date", insertable = false, updatable = false)
- private LocalDateTime expiryDate;
+    @Column(name = "reservation_date",
+            nullable = false,
+            updatable = false,
+            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+    @Builder.Default
+    private LocalDateTime reservationDate = LocalDateTime.now();
 
- @Column(name = "is_fulfilled", nullable = false)
- private boolean fulfilled = false;
+    @Column(name = "expiry_date",
+            insertable = false,
+            updatable = false,
+            columnDefinition = "DATETIME GENERATED ALWAYS AS (reservation_date + INTERVAL 14 DAY) STORED")
+    private LocalDateTime expiryDate;
+
+    @Column(name = "is_fulfilled",
+            nullable = false,
+            columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private boolean isFulfilled = false;
 }

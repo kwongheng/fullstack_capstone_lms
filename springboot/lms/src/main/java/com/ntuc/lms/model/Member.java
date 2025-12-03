@@ -1,42 +1,40 @@
 package com.ntuc.lms.model;
 
 import java.time.LocalDate;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 //model/Member.java
 @Entity
 @Table(name = "MEMBER")
-@Getter @Setter @NoArgsConstructor
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Member {
- @Id
- @Column(name = "user_id")
- private Long userId;
 
- @OneToOne
- @MapsId
- @JoinColumn(name = "user_id")
- private User user;
+    @Id
+    @Column(name = "user_id")
+    private Long userId;
 
- @Column(name = "member_id", nullable = false, unique = true, length = 20)
- private String memberId; // e.g., MEM-0001
+    @Column(name = "member_id", nullable = false, unique = true, length = 20)
+    private String memberId;
 
- @Column(name = "join_date")
- private LocalDate joinDate = LocalDate.now();
+    @Column(name = "join_date", nullable = false, columnDefinition = "DATE DEFAULT CURRENT_DATE")
+    @Builder.Default
+    private LocalDate joinDate = LocalDate.now();
 
- @Enumerated(EnumType.STRING)
- private Status status = Status.Active;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "ENUM('Active','Suspended','Expired') DEFAULT 'Active'")
+    @Builder.Default
+    private Status status = Status.Active;
 
- public enum Status { Active, Suspended, Expired }
+    @OneToOne
+    @MapsId
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    public enum Status {
+        Active, Suspended, Expired
+    }
 }
