@@ -32,10 +32,10 @@ public class BorrowService {
      return borrowRepository.findByReturnedFalse();
  }
 
- public Borrow borrowBook(Long integer, Long integer2) {
-     Member member = memberRepository.findById(integer)
+ public Borrow borrowBook(Long memberId, Long bookId) {
+     Member member = memberRepository.findById(memberId)
              .orElseThrow(() -> new RuntimeException("Member not found"));
-     Book book = bookRepository.findById(integer2)
+     Book book = bookRepository.findById(bookId)
              .orElseThrow(() -> new RuntimeException("Book not found"));
 
      if (book.getAvailableCopies() <= 0) {

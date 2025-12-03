@@ -17,7 +17,7 @@ import com.ntuc.lms.services.BorrowService;
 
 import lombok.RequiredArgsConstructor;
 
-//src/main/java/com/lms/controller/BorrowController.java
+//controller/BorrowController.java
 @RestController
 @RequestMapping("/api/borrows")
 @RequiredArgsConstructor

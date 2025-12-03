@@ -18,7 +18,7 @@ import com.ntuc.lms.services.ReservationService;
 
 import lombok.RequiredArgsConstructor;
 
-//src/main/java/com/lms/controller/ReservationController.java
+//controller/ReservationController.java
 @RestController
 @RequestMapping("/api/reservations")
 @RequiredArgsConstructor

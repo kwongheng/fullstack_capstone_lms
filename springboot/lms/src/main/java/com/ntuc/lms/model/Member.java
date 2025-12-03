@@ -15,7 +15,7 @@ public class Member {
 
     @Id
     @Column(name = "user_id")
-    private Long userId;
+    private Integer userId;
 
     @Column(name = "member_id", nullable = false, unique = true, length = 20)
     private String memberId;

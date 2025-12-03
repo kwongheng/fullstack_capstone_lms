@@ -1,0 +1,135 @@
+flowchart TD
+    %% ========================== PAGES ==========================
+    subgraph LoginPage [Login / Register]
+        A["Library Management System
+
+📧 Email / Member ID
+🔒 Password
+
+(Login)  (Register)  (Forgot Password?)"]
+    end
+
+    subgraph DashboardMember [Member Dashboard]
+        B["Welcome, Kelvin!
+
+Search Books
+
+My Loans (2/3)  |  My Reservations (1)
+Outstanding Fines: $3.50
+
+[View Profile]  [Borrowing History]  [Logout]"]
+    end
+
+    subgraph DashboardAdmin [Admin Dashboard]
+        C["Admin Panel – Kelvin Wong
+
+Quick Stats
+Books: 1,248  |  Members: 342  |  Active Loans: 89  |  Overdue: 12
+
+(Manage Books)  (Manage Members)  (All Transactions)  (Logout)"]
+    end
+
+    subgraph BookCatalog [Book Catalog – Search & Browse]
+        D["Search: harry potter
+
+Filters ▼ Category | Year | Availability
+
+Book Card
+Harry Potter...
+J.K. Rowling | Fantasy | 2001
+Available: 3/5
+(Reserve)  (View Details)
+
+Book Card
+..."]
+    end
+
+    subgraph BookDetails [Book Details]
+        E["Harry Potter and the Philosopher's Stone
+ISBN: 9780439708180
+Author: J.K. Rowling | Fantasy | 2001
+
+Copies: 5 total | 2 available | 1 reserved
+
+Status: Available
+
+(Reserve Book)  (Borrow Now)
+
+Current Borrowers
+• John Doe – Due 15 Dec 2025
+• Jane Smith – Due 18 Dec 2025"]
+    end
+
+    subgraph MemberProfile [My Profile]
+        F["Kelvin Wong
+Member ID: MEM-2025-042
+Email: kelvin@example.com
+Phone: 9123 4567
+Join Date: 02 Dec 2025
+
+Current Loans: 2/3
+Total Fines: $3.50
+
+(Edit Profile)  (Change Password)"]
+    end
+
+    subgraph BorrowingHistory [Borrowing History]
+        G["Filter: All Time | Current | Past
+
+#001234 – Harry Potter
+Borrowed: 20 Nov 2025
+Due: 04 Dec 2025 → Overdue 2 days
+Fine: $1.00 → (Pay Fine)
+
+#001200 – Clean Code
+Returned: 15 Nov 2025
+Fine Paid: $2.50"]
+    end
+
+    subgraph AdminMembers [Admin – Manage Members]
+        H["Search Members
+
+Table: ID | Name | Email | Phone | Join Date | Status | Loans | Fines | Actions
+MEM-001 | John Doe | john@x | ... | Active | 2 | $0.00 | (View) (Edit) (Suspend)
+
+(Add New Member)"]
+    end
+
+    subgraph AdminBooks [Admin – Manage Books]
+        I["(Add New Book)
+
+Table: ISBN | Title | Author | Category | Total | Available | Actions
+978... | Harry Potter... | J.K. Rowling | Fantasy | 5 | 2 | (Edit) (Delete)"]
+    end
+
+    subgraph AdminTransactions [Admin – All Transactions]
+        J["Tabs: Active Loans | Overdue | Reservations
+
+Member | Book | Borrow Date | Due Date | Status | Fine | Action
+John Doe | Harry Potter | 20 Nov | 04 Dec | Overdue | $3.50 | (Record Return)"]
+    end
+
+    %% ========================== NAVIGATION ==========================
+    A --> |"Login as Member"| B
+    A --> |"Login as Admin"| C
+    A --> |Register| A
+
+    B --> D --> E
+    E --> |Reserve/Borrow| B
+    B --> F
+    B --> G
+
+    C --> I
+    C --> H
+    C --> J
+
+    %% Optional: make nodes clickable (works on mermaid.live)
+    click A "https://mermaid.live" "Login Page"
+    click B "https://mermaid.live" "Member Dashboard"
+    click C "https://mermaid.live" "Admin Dashboard"
+
+    %% ========================== STYLING ==========================
+    classDef page fill:#f0f4ff,stroke:#4466cc,stroke-width:2px,rx:12px,ry:12px
+    classDef admin fill:#fff0f0,stroke:#cc4444,stroke-width:2px
+    class A,B,D,E,F,G page
+    class C,H,I,J admin
