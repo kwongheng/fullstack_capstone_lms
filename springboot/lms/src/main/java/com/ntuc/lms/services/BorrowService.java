@@ -1,5 +1,6 @@
 package com.ntuc.lms.services;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -50,17 +51,22 @@ public class BorrowService {
 		return borrowRepository.save(borrow);
 	}
 
+	@Transactional
 	public Borrow returnBook(Integer borrowId) {
 		Borrow borrow = borrowRepository.findById(borrowId)
 				.orElseThrow(() -> new RuntimeException("Borrow record not found"));
+
 		if (borrow.isReturned()) {
 			throw new RuntimeException("Book already returned");
 		}
+
 		borrow.setReturned(true);
 		borrow.setReturnDate(LocalDateTime.now());
+
 		Book book = borrow.getBook();
 		book.setAvailableCopies(book.getAvailableCopies() + 1);
 		bookRepository.save(book);
+
 		return borrowRepository.save(borrow);
 	}
 
@@ -84,4 +90,43 @@ public class BorrowService {
 		return borrowRepository.save(borrow);
 	}
 
+	@Transactional
+	public Borrow calculateFine(Integer borrowId) {
+		Borrow borrow = borrowRepository.findById(borrowId).orElseThrow(() -> new RuntimeException("Borrow not found"));
+
+		if (borrow.isReturned()) {
+			// Fine is frozen at return time — do nothing
+			return borrow;
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime dueDate = borrow.getDueDate();
+
+		if (dueDate == null || now.isBefore(dueDate)) {
+			borrow.setFineAmount(BigDecimal.ZERO);
+		} else {
+			long overdueDays = java.time.Duration.between(dueDate, now).toDays();
+			BigDecimal calculated = BigDecimal.valueOf(overdueDays).multiply(BigDecimal.valueOf(0.5))
+					.min(BigDecimal.valueOf(20.00)).setScale(2, java.math.RoundingMode.HALF_UP);
+			borrow.setFineAmount(calculated);
+		}
+
+		return borrowRepository.save(borrow);
+	}
+
+	@Transactional
+	public Borrow payFine(Integer borrowId) {
+		Borrow borrow = borrowRepository.findById(borrowId).orElseThrow(() -> new RuntimeException("Borrow not found"));
+
+		// Return the book (if not already returned)
+		if (!borrow.isReturned()) {
+			returnBook(borrowId); 
+		}
+
+		// Clear fine and record payment time
+		borrow.setFineAmount(BigDecimal.ZERO);
+		borrow.setFinePaidAt(LocalDateTime.now());
+
+		return borrowRepository.save(borrow);
+	}
 }

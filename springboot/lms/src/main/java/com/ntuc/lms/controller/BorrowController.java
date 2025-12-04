@@ -23,38 +23,49 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class BorrowController {
 
- private final BorrowService borrowService;
+	private final BorrowService borrowService;
 
- @GetMapping
- public ResponseEntity<List<Borrow>> getAllBorrows() {
-     return ResponseEntity.ok(borrowService.getAll());
- }
+	@GetMapping
+	public ResponseEntity<List<Borrow>> getAllBorrows() {
+		return ResponseEntity.ok(borrowService.getAll());
+	}
 
- @GetMapping("/active")
- public ResponseEntity<List<Borrow>> getActiveBorrows() {
-     return ResponseEntity.ok(borrowService.getActiveBorrows());
- }
+	@GetMapping("/active")
+	public ResponseEntity<List<Borrow>> getActiveBorrows() {
+		return ResponseEntity.ok(borrowService.getActiveBorrows());
+	}
 
- @PostMapping
- public ResponseEntity<Borrow> borrowBook(@RequestBody BorrowRequest request) {
-     Borrow borrow = borrowService.borrowBook(
-             request.memberUserId(),
-             request.bookId()
-     );
-     return ResponseEntity.status(HttpStatus.CREATED).body(borrow);
- }
+	@PostMapping
+	public ResponseEntity<Borrow> borrowBook(@RequestBody BorrowRequest request) {
+		Borrow borrow = borrowService.borrowBook(request.memberUserId(), request.bookId());
+		return ResponseEntity.status(HttpStatus.CREATED).body(borrow);
+	}
 
- @PatchMapping("/{id}/return")
- public ResponseEntity<Borrow> returnBook(@PathVariable Integer id) {
-     Borrow returned = borrowService.returnBook(id);
-     return ResponseEntity.ok(returned);
- }
+	@PatchMapping("/{id}/return")
+	public ResponseEntity<Borrow> returnBook(@PathVariable Integer id) {
+		Borrow returned = borrowService.returnBook(id);
+		return ResponseEntity.ok(returned);
+	}
 
- @PatchMapping("/{id}/renew")
- public ResponseEntity<Borrow> renewBook(@PathVariable Integer id) {
-     Borrow renewed = borrowService.renewBook(id);
-     return ResponseEntity.ok(renewed);
- }
+	@PatchMapping("/{id}/renew")
+	public ResponseEntity<Borrow> renewBook(@PathVariable Integer id) {
+		Borrow renewed = borrowService.renewBook(id);
+		return ResponseEntity.ok(renewed);
+	}
+
+	@PatchMapping("/{id}/calculate-fine")
+	public ResponseEntity<Borrow> calculateFine(@PathVariable Integer id) {
+		Borrow updated = borrowService.calculateFine(id);
+		return ResponseEntity.ok(updated);
+	}
+
+	@PatchMapping("/{id}/pay-fine")
+	public ResponseEntity<Borrow> payFine(@PathVariable Integer id) {
+	    Borrow updated = borrowService.payFine(id);
+	    return ResponseEntity.ok(updated);
+	}
+
 }
 
-record BorrowRequest(Integer memberUserId, Integer bookId) {}
+record BorrowRequest(Integer memberUserId, Integer bookId) {
+}
