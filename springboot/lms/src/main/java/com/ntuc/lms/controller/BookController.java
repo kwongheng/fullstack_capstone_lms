@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ntuc.lms.model.Book;
@@ -20,7 +21,7 @@ import com.ntuc.lms.services.BookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-//src/main/java/com/lms/controller/BookController.java
+//controller/BookController.java
 @RestController
 @RequestMapping("/api/books")
 @RequiredArgsConstructor
@@ -43,6 +44,18 @@ public class BookController {
      return ResponseEntity.ok(bookService.getByIsbn(isbn));
  }
 
+ @GetMapping("/search/title")
+ public ResponseEntity<List<Book>> searchByTitle(
+         @RequestParam(required = false) String title) {
+     return ResponseEntity.ok(bookService.searchByTitle(title));
+ }
+
+ @GetMapping("/search/author")
+ public ResponseEntity<List<Book>> searchByAuthor(
+         @RequestParam(required = false) String author) {
+     return ResponseEntity.ok(bookService.searchByAuthor(author));
+ }
+ 
  @PostMapping
  public ResponseEntity<Book> addBook(@Valid @RequestBody Book book) {
      Book saved = bookService.save(book);
