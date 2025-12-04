@@ -30,19 +30,13 @@ public class Reservation {
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
 
-    @Column(name = "reservation_date",
-            nullable = false,
-            updatable = false,
-            columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "reservation_date", nullable = false)
     @Builder.Default
     private LocalDateTime reservationDate = LocalDateTime.now();
 
-    @Column(name = "expiry_date",
-            insertable = false,
-            updatable = false,
-            columnDefinition = "DATETIME GENERATED ALWAYS AS (reservation_date + INTERVAL 14 DAY) STORED")
+    @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
-
+    
     @Column(name = "is_fulfilled",
             nullable = false,
             columnDefinition = "BOOLEAN DEFAULT FALSE")

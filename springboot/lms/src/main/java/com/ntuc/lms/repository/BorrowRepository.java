@@ -7,5 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.ntuc.lms.model.Borrow;
 
 public interface BorrowRepository extends JpaRepository<Borrow, Integer> {
-    List<Borrow> findByReturnedFalse();
+    List<Borrow> findByIsReturnedFalse();  
 }

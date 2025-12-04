@@ -1,5 +1,6 @@
 package com.ntuc.lms.services;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -27,13 +28,13 @@ public class ReservationService {
     }
 
     public List<Reservation> getActiveReservations() {
-        return reservationRepository.findByFulfilledFalse();
+        return reservationRepository.findByIsFulfilledFalse();
     }
 
     @Transactional
     public Reservation reserveBook(Integer memberUserId, Integer bookId) {  // Fixed: Names, types
         // Fixed: Enforce UQ_ACTIVE_RESERVATION
-        if (reservationRepository.findByFulfilledFalseAndMemberUserIdAndBookId(memberUserId, bookId).isPresent()) {
+        if (reservationRepository.findByIsFulfilledFalseAndMember_User_IdAndBook_Id(memberUserId, bookId).isPresent()) {
             throw new IllegalStateException("Active reservation exists");
         }
         Member member = memberRepository.findById(memberUserId)
@@ -44,6 +45,7 @@ public class ReservationService {
         Reservation r = new Reservation();
         r.setMember(member);
         r.setBook(book);
+        r.setExpiryDate(LocalDateTime.now().plusDays(14));
         return reservationRepository.save(r);
     }
 

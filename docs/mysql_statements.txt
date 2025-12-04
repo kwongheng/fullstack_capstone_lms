@@ -47,7 +47,7 @@ CREATE TABLE BORROW (
     user_id       INT NOT NULL,
     book_id       INT NOT NULL,
     borrow_date   DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    due_date      DATETIME GENERATED ALWAYS AS (borrow_date + INTERVAL 14 DAY) STORED,
+    due_date      DATETIME NOT NULL,
     return_date   DATETIME NULL,
     fine_amount   DECIMAL(6,2) DEFAULT 0.00 CHECK (fine_amount <= 20.00),
     times_renew   TINYINT DEFAULT 0 CHECK (times_renew <= 2),
@@ -70,7 +70,7 @@ CREATE TABLE RESERVATION (
     user_id           INT NOT NULL,
     book_id           INT NOT NULL,
     reservation_date  DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    expiry_date       DATETIME GENERATED ALWAYS AS (reservation_date + INTERVAL 14 DAY) STORED,
+    expiry_date       DATETIME NOT NULL,
     is_fulfilled      BOOLEAN DEFAULT FALSE NOT NULL,
     
     CONSTRAINT FK_RESERVE_MEMBER 

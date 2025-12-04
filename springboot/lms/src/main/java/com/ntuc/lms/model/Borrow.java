@@ -29,14 +29,13 @@ public class Borrow {
     @JoinColumn(name = "book_id", nullable = false)
     private Book book;
 
-    @Column(name = "borrow_date", nullable = false, columnDefinition = "DATETIME DEFAULT CURRENT_TIMESTAMP")
+    @Column(name = "borrow_date", nullable = false)
     @Builder.Default
     private LocalDateTime borrowDate = LocalDateTime.now();
 
-    @Column(name = "due_date", insertable = false, updatable = false,
-            columnDefinition = "DATETIME GENERATED ALWAYS AS (borrow_date + INTERVAL 14 DAY) STORED")
+    @Column(name = "due_date", nullable = false)
     private LocalDateTime dueDate;
-
+    
     @Column(name = "return_date")
     private LocalDateTime returnDate;
 

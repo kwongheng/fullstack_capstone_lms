@@ -20,59 +20,68 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class BorrowService {
- private final BorrowRepository borrowRepository;
- private final BookRepository bookRepository;
- private final MemberRepository memberRepository;
+	private final BorrowRepository borrowRepository;
+	private final BookRepository bookRepository;
+	private final MemberRepository memberRepository;
 
- public List<Borrow> getAll() {
-     return borrowRepository.findAll();
- }
+	public List<Borrow> getAll() {
+		return borrowRepository.findAll();
+	}
 
- public List<Borrow> getActiveBorrows() {
-     return borrowRepository.findByReturnedFalse();
- }
+	public List<Borrow> getActiveBorrows() {
+		return borrowRepository.findByIsReturnedFalse();
+	}
 
- public Borrow borrowBook(Integer memberId, Integer bookId) {
-     Member member = memberRepository.findById(memberId)
-             .orElseThrow(() -> new RuntimeException("Member not found"));
-     Book book = bookRepository.findById(bookId)
-             .orElseThrow(() -> new RuntimeException("Book not found"));
+	public Borrow borrowBook(Integer memberId, Integer bookId) {
+		Member member = memberRepository.findById(memberId).orElseThrow(() -> new RuntimeException("Member not found"));
+		Book book = bookRepository.findById(bookId).orElseThrow(() -> new RuntimeException("Book not found"));
 
-     if (book.getAvailableCopies() <= 0) {
-         throw new RuntimeException("No copies available");
-     }
+		if (book.getAvailableCopies() <= 0) {
+			throw new RuntimeException("No copies available");
+		}
 
-     Borrow borrow = new Borrow();
-     borrow.setMember(member);
-     borrow.setBook(book);
-     book.setAvailableCopies(book.getAvailableCopies() - 1);
-     bookRepository.save(book);
+		Borrow borrow = new Borrow();
+		borrow.setMember(member);
+		borrow.setBook(book);
+		borrow.setDueDate(LocalDateTime.now().plusDays(14));
+		book.setAvailableCopies(book.getAvailableCopies() - 1);
+		bookRepository.save(book);
 
-     return borrowRepository.save(borrow);
- }
+		return borrowRepository.save(borrow);
+	}
 
- public Borrow returnBook(Integer borrowId) {
-     Borrow borrow = borrowRepository.findById(borrowId)
-             .orElseThrow(() -> new RuntimeException("Borrow record not found"));
-     if (borrow.isReturned()) {
-         throw new RuntimeException("Book already returned");
-     }
-     borrow.setReturned(true);
-     borrow.setReturnDate(LocalDateTime.now());
-     Book book = borrow.getBook();
-     book.setAvailableCopies(book.getAvailableCopies() + 1);
-     bookRepository.save(book);
-     return borrowRepository.save(borrow);
- }
+	public Borrow returnBook(Integer borrowId) {
+		Borrow borrow = borrowRepository.findById(borrowId)
+				.orElseThrow(() -> new RuntimeException("Borrow record not found"));
+		if (borrow.isReturned()) {
+			throw new RuntimeException("Book already returned");
+		}
+		borrow.setReturned(true);
+		borrow.setReturnDate(LocalDateTime.now());
+		Book book = borrow.getBook();
+		book.setAvailableCopies(book.getAvailableCopies() + 1);
+		bookRepository.save(book);
+		return borrowRepository.save(borrow);
+	}
 
- public Borrow renewBook(Integer borrowId) {
-     Borrow borrow = borrowRepository.findById(borrowId)
-             .orElseThrow(() -> new RuntimeException("Borrow record not found"));
-     if (borrow.getTimesRenew() >= 2) {
-         throw new RuntimeException("Maximum renewals reached");
-     }
-     borrow.renew();
-     return borrowRepository.save(borrow);
- }
+	@Transactional
+	public Borrow renewBook(Integer borrowId) {
+		Borrow borrow = borrowRepository.findById(borrowId)
+				.orElseThrow(() -> new RuntimeException("Borrow record not found"));
+
+		if (borrow.isReturned()) {
+			throw new RuntimeException("Cannot renew a returned book");
+		}
+		if (borrow.getTimesRenew() >= 2) {
+			throw new RuntimeException("Maximum 2 renewals allowed");
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		borrow.setBorrowDate(now);
+		borrow.setDueDate(now.plusDays(14));
+		borrow.setTimesRenew((byte) (borrow.getTimesRenew() + 1));
+
+		return borrowRepository.save(borrow);
+	}
 
 }
