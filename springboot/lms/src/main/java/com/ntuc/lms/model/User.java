@@ -1,18 +1,19 @@
+
 package com.ntuc.lms.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
-//model/User.java
+//model/User.java 
 @Entity
 @Table(name = "USER")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@EntityListeners(UserEntityListener.class)  // This triggers auto-creation
 public class User {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
@@ -42,9 +43,6 @@ public class User {
     @Column(nullable = false, columnDefinition = "ENUM('Admin','Member') DEFAULT 'Member'")
     @Builder.Default
     private Role role = Role.Member;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY, optional = false)
-    private Member member;
 
     public enum Role {
         Admin, Member

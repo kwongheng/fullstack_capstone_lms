@@ -29,7 +29,7 @@ public class Member {
     @Builder.Default
     private Status status = Status.Active;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
     @MapsId
     @JoinColumn(name = "user_id")
     private User user;
