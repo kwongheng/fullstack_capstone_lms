@@ -18,7 +18,7 @@ export default function UserProfile() {
     phone: user?.phone || "",
     address: user?.address || "",
     role: user?.role || "Member",
-    passwordHash: user?.passwordHash || "", // ← PRESERVE THIS
+    passwordHash: user?.passwordHash || "", 
   });
 
   const handleChange = (e) => {
@@ -32,7 +32,7 @@ export default function UserProfile() {
       phone: form.phone?.trim() || null,
       address: form.address?.trim() || null,
       role: user.role,
-      passwordHash: user.passwordHash, // ← SEND ORIGINAL
+      passwordHash: user.passwordHash, 
     };
 
     updateUser(
