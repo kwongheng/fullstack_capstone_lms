@@ -20,16 +20,6 @@ import ReservationsCancel from "./pages/Admin/Reservations/ReservationsCancel";
 import ReservationsUpdate from "./pages/Admin/Reservations/ReservationsUpdate";
 import ReservationsView from "./pages/Admin/Reservations/ReservationsView";
 
-// import UserAdd from "./pages/Admin/User/UserAdd";
-// import UserDelete from "./pages/Admin/User/UserDelete";
-// import UserUpdate from "./pages/Admin/User/UserUpdate";
-// import UserView from "./pages/Admin/User/UserView";
-
-import BooksAdd from "./pages/Admin/Books/BooksAdd";
-import BooksView from "./pages/Admin/Books/BooksView";
-import BooksUpdate from "./pages/Admin/Books/BooksUpdate";
-import BooksDelete from "./pages/Admin/Books/BooksDelete";
-
 import BooksBorrow from "./pages/User/BookLoans/BooksBorrow";
 import BooksReturn from "./pages/User/BookLoans/BooksReturn";
 import FinesViewPay from "./pages/User/BookLoans/FinesViewPay";
@@ -40,6 +30,8 @@ import ReservationsUserAdd from "./pages/User/Reservations/ReservationsUserAdd";
 import ReservationsUserCancel from "./pages/User/Reservations/ReservationsUserCancel";
 import ReservationsUserView from "./pages/User/Reservations/ReservationsUserView";
 import ManageUsers from "./pages/Admin/User/ManageUsers";
+import ManageBooks from "./pages/Admin/Books/ManageBooks";
+import UserProfile from "./pages/UserProfile";
 /* ================================ */
 
 function Layout() {
@@ -65,15 +57,7 @@ function Layout() {
           <Routes>
             {/* === ADMIN ROUTES === */}
             <Route path="/users/manage" element={<ManageUsers />} />
-            {/* <Route path="/users/list" element={<UserView />} />
-            <Route path="/users/create" element={<UserAdd />} />
-            <Route path="/users/update/:id" element={<UserUpdate />} />
-            <Route path="/users/delete/:id" element={<UserDelete />} /> */}
-
-            <Route path="/books/list" element={<BooksView />} />
-            <Route path="/books/add" element={<BooksAdd />} />
-            <Route path="/books/update/:id" element={<BooksUpdate />} />
-            <Route path="/books/delete/:id" element={<BooksDelete />} />
+            <Route path="/books/manage" element={<ManageBooks />} />  
 
             <Route path="/loans/current" element={<LoansActive />} />
             <Route path="/loans/history" element={<LoansHistory />} />
@@ -96,6 +80,8 @@ function Layout() {
 
             {/* Default route */}
             <Route path="*" element={<h2>Welcome to LMS Dashboard</h2>} />
+
+            <Route path="/profile" element={<UserProfile />} />
           </Routes>
         </div>
       </div>

@@ -39,10 +39,6 @@ export default function Sidebar() {
           </div>
           <div className={`submenu ${openMenu.users ? "open" : ""}`}>
             <Link to="/users/manage" className={isActive("/users/manage") ? "active" : ""}>Manage Users</Link>
-            {/* <Link to="/users/list" className={isActive("/users/list") ? "active" : ""}>View Users</Link>
-            <Link to="/users/create" className={isActive("/users/create") ? "active" : ""}>Add User</Link>
-            <Link to="/users/update/1" className={isActive("/users/update") ? "active" : ""}>Update User</Link>
-            <Link to="/users/delete/1" className={isActive("/users/delete") ? "active" : ""}>Delete User</Link> */}
           </div>
 
           {/* Books */}
@@ -51,10 +47,7 @@ export default function Sidebar() {
             <span className={`arrow ${openMenu.books ? "down" : ""}`} />
           </div>
           <div className={`submenu ${openMenu.books ? "open" : ""}`}>
-            <Link to="/books/list" className={isActive("/books/list") ? "active" : ""}>View Books</Link>
-            <Link to="/books/add" className={isActive("/books/add") ? "active" : ""}>Add Book</Link>
-            <Link to="/books/update/1" className={isActive("/books/update") ? "active" : ""}>Update Book</Link>
-            <Link to="/books/delete/1" className={isActive("/books/delete") ? "active" : ""}>Delete Book</Link>
+            <Link to="/books/manage">Manage Books</Link>
           </div>
 
           {/* Book Loans */}

@@ -23,7 +23,7 @@ export default function ManageUsers() {
       phone: formData.phone?.trim() || null,
       address: formData.address?.trim() || null,
       role: formData.role,
-      passwordHash: formData.passwordHash, // ← your original, unchanged, perfect
+      passwordHash: formData.passwordHash, 
     };
 
     if (modal.mode === "add") {
@@ -182,7 +182,6 @@ export default function ManageUsers() {
 }
 
 // Reusable Form Component
-// Reusable Form Component — FINAL, SAFE, NO BREAKING CHANGES
 function UserForm({ user, isAdd, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     email: user?.email || "",

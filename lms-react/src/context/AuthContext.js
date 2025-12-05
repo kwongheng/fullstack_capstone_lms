@@ -8,35 +8,38 @@ export const AuthContext = createContext();
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
 
-  // Restore session from localStorage on page load
+  // Always start from Login screen on refresh/npm restart
   useEffect(() => {
-    const saved = localStorage.getItem("lms_user");
-    if (saved) {
-      try {
-        setUser(JSON.parse(saved));
-      } catch (e) {
-        localStorage.removeItem("lms_user");
-      }
-    }
+    localStorage.removeItem("lms_user");
   }, []);
 
   const login = async (email, password) => {
     try {
-      const res = await userApi.login(email, password);
-      const userData = {
-        id: res.data.id,
-        email: res.data.email,
-        fullName: res.data.name,        // matches LoginResponse
-        role: res.data.role,            // "Admin" or "Member"
+      // First: authenticate
+      const loginRes = await userApi.login(email, password);
+
+      // Then: fetch full user data using the ID from login
+      const userRes = await userApi.getUserById(loginRes.data.id);
+
+      const fullUserData = {
+        id: userRes.data.id,
+        email: userRes.data.email,
+        fullName: userRes.data.fullName,
+        phone: userRes.data.phone || "",
+        address: userRes.data.address || "",
+        role: userRes.data.role,
+        displayName: userRes.data.email.split("@")[0],
       };
-      setUser(userData);
-      localStorage.setItem("lms_user", JSON.stringify(userData));
+
+      setUser(fullUserData);
+      localStorage.setItem("lms_user", JSON.stringify(fullUserData));
+
       Swal.fire({
         icon: "success",
         title: "Welcome!",
-        text: `Welcome back, ${userData.fullName}`,
+        text: `Welcome back, ${fullUserData.fullName}`,
         timer: 1500,
-        showConfirmButton: false
+        showConfirmButton: false,
       });
     } catch (err) {
       const msg = err.response?.data || "Invalid email or password";
@@ -52,8 +55,6 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>{children}</AuthContext.Provider>
   );
 }

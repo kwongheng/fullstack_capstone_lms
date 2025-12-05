@@ -30,17 +30,24 @@ export default function Header() {
       <div className="app-title">Library Management System</div>
 
       <div style={{ position: "relative" }}>
-        <button
-          className="user-name-btn"
-          onClick={() => setOpenUserMenu(!openUserMenu)}
-        >
-          {user?.name ?? "User"}
+        <button className="user-name-btn" onClick={() => setOpenUserMenu(!openUserMenu)}>
+          {user?.displayName || user?.email?.split("@")[0] || "User"}
         </button>
 
         {openUserMenu && (
           <div className="user-menu-dropdown" ref={menuRef}>
-            <button>Profile</button>
-            <button onClick={handleLogout}>Logout</button>
+            <button
+              className="menu-item"
+              onClick={() => {
+                setOpenUserMenu(false);
+                navigate("/profile");
+              }}
+            >
+              Profile
+            </button>
+            <button className="menu-item" onClick={handleLogout}>
+              Logout
+            </button>
           </div>
         )}
       </div>
