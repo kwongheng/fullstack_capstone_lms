@@ -55,63 +55,45 @@ function Layout() {
     );
   }
 
-  // Logged-in layout
   return (
     <>
       <Header />
       <div className="main-layout">
         <Sidebar />
-        <div className="content-area p-3">
+        <div className="content-area">
           <Routes>
-
-            {/* ================================
-               USERS
-            ================================ */}
+            {/* === ADMIN ROUTES === */}
             <Route path="/users/list" element={<UserView />} />
             <Route path="/users/create" element={<UserAdd />} />
             <Route path="/users/update/:id" element={<UserUpdate />} />
             <Route path="/users/delete/:id" element={<UserDelete />} />
 
-            {/* ================================
-               BOOKS
-            ================================ */}
             <Route path="/books/list" element={<BooksView />} />
             <Route path="/books/add" element={<BooksAdd />} />
             <Route path="/books/update/:id" element={<BooksUpdate />} />
             <Route path="/books/delete/:id" element={<BooksDelete />} />
 
-            {/* ================================
-               LOANS
-            ================================ */}
             <Route path="/loans/current" element={<LoansActive />} />
             <Route path="/loans/history" element={<LoansHistory />} />
             <Route path="/loans/update/:id" element={<LoansUpdate />} />
 
-            {/* ================================
-               RESERVATIONS
-            ================================ */}
-            {/* Admin */}
             <Route path="/reservations/list" element={<ReservationsView />} />
             <Route path="/reservations/update" element={<ReservationsUpdate />} />
             <Route path="/reservations/delete" element={<ReservationsCancel />} />
 
-            {/* ================================
-               Members
-            ================================ */}
-
-            {/* BookLoans */}
+            {/* === USER ROUTES === */}
             <Route path="/loans/borrow/:id" element={<BooksBorrow />} />
             <Route path="/loans/return/:id" element={<BooksReturn />} />
+            <Route path="/fines/view-pay/:id" element={<FinesViewPay />} />
             <Route path="/loans/history/:id" element={<LoansUserHistory />} />
             <Route path="/loans/status/:id" element={<LoansUserStatus />} />
-            <Route path="/fines/view-pay/:id" element={<FinesViewPay />} />
 
             <Route path="/reservations/add/:id" element={<ReservationsUserAdd />} />
             <Route path="/reservations/cancel/:id" element={<ReservationsUserCancel />} />
-            <Route path="/reservations/view/:id" element={<ReservationsUserView/>} />           
+            <Route path="/reservations/view/:id" element={<ReservationsUserView />} />
 
-            {/* DEFAULT */}
-            <Route path="*" element={<h2>Stub Page</h2>} />
+            {/* Default route */}
+            <Route path="*" element={<h2>Welcome to LMS Dashboard</h2>} />
           </Routes>
         </div>
       </div>

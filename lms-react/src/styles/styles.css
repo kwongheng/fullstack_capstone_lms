@@ -139,6 +139,29 @@ body {
   background: rgba(255,255,255,0.08);
 }
 
+/* ============================================================
+   PURE CSS ARROWS — Perfect black triangles on ALL systems (including Windows)
+============================================================ */
+.sidebar-title .arrow {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  margin-left: 10px;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--md-sys-color-text-primary);
+  transition: transform 0.2s ease;
+}
+
+.sidebar-title .arrow.down {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--md-sys-color-text-primary);
+  border-bottom: none;
+  margin-left: 0;
+  margin-bottom: 2px;
+}
+
 /* SUB MENU */
 .submenu {
   display: none;
@@ -165,6 +188,42 @@ body {
 .submenu a:hover {
   background: rgba(255,255,255,0.12);
   color: var(--md-sys-color-text-primary);
+}
+
+.submenu a.active-link,
+.submenu a:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: white !important;
+  font-weight: 500;
+}
+
+/* ============================================================
+   MAIN LAYOUT — AFTER LOGIN
+============================================================ */
+.main-layout {
+  display: flex;                    /* This is the KEY line */
+  min-height: calc(100vh - 60px);   /* Full height minus header */
+}
+
+.main-layout .sidebar {
+  width: 240px;
+  flex-shrink: 0;                   /* Prevent sidebar from shrinking */
+  position: sticky;
+  top: 60px;                        /* Stick below header */
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.main-layout .content-area {
+  flex: 1;                          /* Take all remaining space */
+  background: #f8fafc;
+  min-height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+/* Optional: nicer padding on content */
+.content-area > div {
+  padding: 24px;
 }
 
 /* ============================================================
