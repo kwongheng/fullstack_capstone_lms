@@ -20,10 +20,10 @@ import ReservationsCancel from "./pages/Admin/Reservations/ReservationsCancel";
 import ReservationsUpdate from "./pages/Admin/Reservations/ReservationsUpdate";
 import ReservationsView from "./pages/Admin/Reservations/ReservationsView";
 
-import UserAdd from "./pages/Admin/User/UserAdd";
-import UserDelete from "./pages/Admin/User/UserDelete";
-import UserUpdate from "./pages/Admin/User/UserUpdate";
-import UserView from "./pages/Admin/User/UserView";
+// import UserAdd from "./pages/Admin/User/UserAdd";
+// import UserDelete from "./pages/Admin/User/UserDelete";
+// import UserUpdate from "./pages/Admin/User/UserUpdate";
+// import UserView from "./pages/Admin/User/UserView";
 
 import BooksAdd from "./pages/Admin/Books/BooksAdd";
 import BooksView from "./pages/Admin/Books/BooksView";
@@ -39,6 +39,7 @@ import LoansUserHistory from "./pages/User/BookLoans/LoansUserHistory";
 import ReservationsUserAdd from "./pages/User/Reservations/ReservationsUserAdd";
 import ReservationsUserCancel from "./pages/User/Reservations/ReservationsUserCancel";
 import ReservationsUserView from "./pages/User/Reservations/ReservationsUserView";
+import ManageUsers from "./pages/Admin/User/ManageUsers";
 /* ================================ */
 
 function Layout() {
@@ -63,10 +64,11 @@ function Layout() {
         <div className="content-area">
           <Routes>
             {/* === ADMIN ROUTES === */}
-            <Route path="/users/list" element={<UserView />} />
+            <Route path="/users/manage" element={<ManageUsers />} />
+            {/* <Route path="/users/list" element={<UserView />} />
             <Route path="/users/create" element={<UserAdd />} />
             <Route path="/users/update/:id" element={<UserUpdate />} />
-            <Route path="/users/delete/:id" element={<UserDelete />} />
+            <Route path="/users/delete/:id" element={<UserDelete />} /> */}
 
             <Route path="/books/list" element={<BooksView />} />
             <Route path="/books/add" element={<BooksAdd />} />

@@ -1,6 +1,8 @@
 package com.ntuc.lms.controller;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,6 +48,43 @@ public class UserController {
 		return ResponseEntity.ok(userService.searchByName(name));
 	}
 
+	@GetMapping("/check-email")
+	public ResponseEntity<Map<String, Boolean>> checkEmailAvailability(
+	        @RequestParam String email,
+	        @RequestParam(required = false) Integer excludeId) {
+
+	    Optional<User> user = userService.findByEmail(email);
+
+	    boolean available = user.isEmpty() ||
+	            (excludeId != null && user.isPresent() && user.get().getId().equals(excludeId));
+
+	    return ResponseEntity.ok(Map.of("available", available));
+	}
+	
+	@PostMapping("/login")
+	public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+	    Optional<User> userOpt = userService.findByEmail(request.email());
+
+	    if (userOpt.isPresent()) {
+	        User user = userOpt.get();
+	        LoginResponse response = new LoginResponse(
+	            user.getId(),
+	            user.getEmail(),
+	            user.getFullName(),
+	            user.getRole().name()  // returns "Admin" or "Member" as String
+	        );
+	        return ResponseEntity.ok(response);
+	    } else {
+	        return ResponseEntity
+	            .status(HttpStatus.UNAUTHORIZED)
+	            .body("Invalid email or password");
+	    }
+	}
+
+	// Simple DTOs – add as inner records or separate files
+	record LoginRequest(String email, String password) {}
+	record LoginResponse(Integer id, String email, String fullName, String role) {}
+	
 	@PostMapping
 	public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
 		User saved = userService.registerUser(user);

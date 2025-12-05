@@ -25,7 +25,7 @@ export default function Sidebar() {
   const isActive = (path) => location.pathname.includes(path);
 
   if (!user) return null;
-  const isAdmin = user.role === "admin";
+  const isAdmin = user?.role?.toLowerCase() === "admin";
 
   return (
     <div className="sidebar">
@@ -38,10 +38,11 @@ export default function Sidebar() {
             <span className={`arrow ${openMenu.users ? "down" : ""}`} />
           </div>
           <div className={`submenu ${openMenu.users ? "open" : ""}`}>
-            <Link to="/users/list" className={isActive("/users/list") ? "active" : ""}>View Users</Link>
+            <Link to="/users/manage" className={isActive("/users/manage") ? "active" : ""}>Manage Users</Link>
+            {/* <Link to="/users/list" className={isActive("/users/list") ? "active" : ""}>View Users</Link>
             <Link to="/users/create" className={isActive("/users/create") ? "active" : ""}>Add User</Link>
             <Link to="/users/update/1" className={isActive("/users/update") ? "active" : ""}>Update User</Link>
-            <Link to="/users/delete/1" className={isActive("/users/delete") ? "active" : ""}>Delete User</Link>
+            <Link to="/users/delete/1" className={isActive("/users/delete") ? "active" : ""}>Delete User</Link> */}
           </div>
 
           {/* Books */}
