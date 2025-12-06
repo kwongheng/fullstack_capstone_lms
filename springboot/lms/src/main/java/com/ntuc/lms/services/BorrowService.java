@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import com.ntuc.lms.dto.BorrowSummary;
 import com.ntuc.lms.model.Book;
 import com.ntuc.lms.model.Borrow;
 import com.ntuc.lms.model.Member;
@@ -37,6 +38,13 @@ public class BorrowService {
 		Member member = memberRepository.findById(memberId).orElseThrow(() -> new RuntimeException("Member not found"));
 		Book book = bookRepository.findById(bookId).orElseThrow(() -> new RuntimeException("Book not found"));
 
+	    boolean alreadyBorrowed = borrowRepository
+	            .existsByMemberUserIdAndBookIdAndIsReturnedFalse(memberId, bookId);
+
+	    if (alreadyBorrowed) {
+	        throw new RuntimeException("You have already borrowed this book.");
+	    }
+		
 		if (book.getAvailableCopies() <= 0) {
 			throw new RuntimeException("No copies available");
 		}
@@ -48,28 +56,34 @@ public class BorrowService {
 		book.setAvailableCopies(book.getAvailableCopies() - 1);
 		bookRepository.save(book);
 
+		book.getAvailableCopies(); // forces lazy-load initialization
+
 		return borrowRepository.save(borrow);
 	}
 
 	@Transactional
 	public Borrow returnBook(Integer borrowId) {
-		Borrow borrow = borrowRepository.findById(borrowId)
-				.orElseThrow(() -> new RuntimeException("Borrow record not found"));
+	    Borrow borrow = borrowRepository.findById(borrowId)
+	        .orElseThrow(() -> new RuntimeException("Borrow record not found"));
 
-		if (borrow.isReturned()) {
-			throw new RuntimeException("Book already returned");
-		}
+	    if (borrow.isReturned()) {
+	        throw new RuntimeException("Book already returned");
+	    }
 
-		borrow.setReturned(true);
-		borrow.setReturnDate(LocalDateTime.now());
+	    borrow.setReturned(true);
+	    borrow.setReturnDate(LocalDateTime.now());
 
-		Book book = borrow.getBook();
-		book.setAvailableCopies(book.getAvailableCopies() + 1);
-		bookRepository.save(book);
+	    Book book = borrow.getBook();
 
-		return borrowRepository.save(borrow);
+	    // SAFE INCREMENT — never exceed total_copies
+	    if (book.getAvailableCopies() < book.getTotalCopies()) {
+	        book.setAvailableCopies(book.getAvailableCopies() + 1);
+	    }
+
+	    bookRepository.save(book);
+	    return borrowRepository.saveAndFlush(borrow);
 	}
-
+	
 	@Transactional
 	public Borrow renewBook(Integer borrowId) {
 		Borrow borrow = borrowRepository.findById(borrowId)
@@ -116,17 +130,38 @@ public class BorrowService {
 
 	@Transactional
 	public Borrow payFine(Integer borrowId) {
-		Borrow borrow = borrowRepository.findById(borrowId).orElseThrow(() -> new RuntimeException("Borrow not found"));
+	    Borrow borrow = borrowRepository.findById(borrowId)
+	        .orElseThrow(() -> new RuntimeException("Borrow not found"));
 
-		// Return the book (if not already returned)
-		if (!borrow.isReturned()) {
-			returnBook(borrowId); 
-		}
+	    if (!borrow.isReturned()) {
+	        borrow.setReturned(true);
+	        borrow.setReturnDate(LocalDateTime.now());
 
-		// Clear fine and record payment time
-		borrow.setFineAmount(BigDecimal.ZERO);
-		borrow.setFinePaidAt(LocalDateTime.now());
+	        Book book = borrow.getBook();
+	        if (book.getAvailableCopies() < book.getTotalCopies()) {
+	            book.setAvailableCopies(book.getAvailableCopies() + 1);
+	        }
+	        bookRepository.save(book);
+	    }
 
-		return borrowRepository.save(borrow);
+	    borrow.setFineAmount(BigDecimal.ZERO);
+	    borrow.setFinePaidAt(LocalDateTime.now());
+	    return borrowRepository.save(borrow);
+	}
+	
+	public List<Borrow> getActiveBorrowsByUser(Integer userId) {
+	    return borrowRepository.findByMemberUserIdAndIsReturnedFalse(userId);
+	}
+	
+	public List<BorrowSummary> getUserBorrowSummary(Integer userId) {
+	    return borrowRepository.findByMemberUserId(userId).stream()
+	            .map(b -> new BorrowSummary(
+	                    b.getId(),
+	                    b.getBook().getId(),
+	                    b.getBook().getTitle(),
+	                    b.getDueDate(),
+	                    b.isReturned()
+	            ))
+	            .toList();
 	}
 }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ntuc.lms.dto.BorrowSummary;
 import com.ntuc.lms.model.Borrow;
 import com.ntuc.lms.services.BorrowService;
 
@@ -35,6 +36,16 @@ public class BorrowController {
 		return ResponseEntity.ok(borrowService.getActiveBorrows());
 	}
 
+	@GetMapping("/user/{userId}/active")
+	public ResponseEntity<List<Borrow>> getActiveBorrowsByUser(@PathVariable Integer userId) {
+	    return ResponseEntity.ok(borrowService.getActiveBorrowsByUser(userId));
+	}
+
+	@GetMapping("/user/{userId}/summary")
+	public ResponseEntity<List<BorrowSummary>> getUserBorrowSummary(@PathVariable Integer userId) {
+	    return ResponseEntity.ok(borrowService.getUserBorrowSummary(userId));
+	}
+	
 	@PostMapping
 	public ResponseEntity<Borrow> borrowBook(@RequestBody BorrowRequest request) {
 		Borrow borrow = borrowService.borrowBook(request.memberUserId(), request.bookId());

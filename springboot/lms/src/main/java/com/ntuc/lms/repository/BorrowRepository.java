@@ -7,5 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.ntuc.lms.model.Borrow;
 
 public interface BorrowRepository extends JpaRepository<Borrow, Integer> {
-    List<Borrow> findByIsReturnedFalse();  
+	List<Borrow> findByIsReturnedFalse();
+	List<Borrow> findByMemberUserIdAndIsReturnedFalse(Integer userId);
+	boolean existsByMemberUserIdAndBookIdAndIsReturnedFalse(Integer userId, Integer bookId);
+	List<Borrow> findByMemberUserId(Integer userId);
 }

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import java.time.Year;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 //model/Book.java
 @Entity
 @Table(name = "BOOK", indexes = {
@@ -16,6 +18,7 @@ import java.time.Year;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder(toBuilder = true)
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Book {
 
     @Id

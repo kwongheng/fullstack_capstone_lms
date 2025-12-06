@@ -1,16 +1,16 @@
 // App.js
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, AuthContext } from "./context/AuthContext";
 import { useContext } from "react";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
+import MemberDashboard from "./pages/User/MemberDashboard";  
 import "./styles/styles.css";
 
-/* ================================
-   IMPORT YOUR STUB PAGES
-================================ */
+import ManageUsers from "./pages/Admin/User/ManageUsers";
+import ManageBooks from "./pages/Admin/Books/ManageBooks";
 
 import LoansActive from "./pages/Admin/BookLoans/LoansActive";
 import LoansHistory from "./pages/Admin/BookLoans/LoansHistory";
@@ -20,18 +20,13 @@ import ReservationsCancel from "./pages/Admin/Reservations/ReservationsCancel";
 import ReservationsUpdate from "./pages/Admin/Reservations/ReservationsUpdate";
 import ReservationsView from "./pages/Admin/Reservations/ReservationsView";
 
-import BooksBorrow from "./pages/User/BookLoans/BooksBorrow";
-import BooksReturn from "./pages/User/BookLoans/BooksReturn";
-import FinesViewPay from "./pages/User/BookLoans/FinesViewPay";
-import LoansUserStatus from "./pages/User/BookLoans/LoansUserStatus";
-import LoansUserHistory from "./pages/User/BookLoans/LoansUserHistory";
+import BorrowBooks from "./pages/User/BookLoans/BorrowBooks";
+import ManageLoansStatus from "./pages/User/BookLoans/ManageLoansStatus";
+import ViewLoansHistory from "./pages/User/BookLoans/ViewLoansHistory";
+import ManageUserReservations from "./pages/User/Reservations/ManageUserReservations";
 
-import ReservationsUserAdd from "./pages/User/Reservations/ReservationsUserAdd";
-import ReservationsUserCancel from "./pages/User/Reservations/ReservationsUserCancel";
-import ReservationsUserView from "./pages/User/Reservations/ReservationsUserView";
-import ManageUsers from "./pages/Admin/User/ManageUsers";
-import ManageBooks from "./pages/Admin/Books/ManageBooks";
 import UserProfile from "./pages/UserProfile";
+
 /* ================================ */
 
 function Layout() {
@@ -43,11 +38,12 @@ function Layout() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/create-account" element={<CreateAccount />} />
-        <Route path="*" element={<Login />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
 
+  // Logged-in user
   return (
     <>
       <Header />
@@ -55,9 +51,13 @@ function Layout() {
         <Sidebar />
         <div className="content-area">
           <Routes>
+            {/* === MEMBER DASHBOARD — NEW LANDING PAGE === */}
+            <Route path="/member/dashboard" element={<MemberDashboard />} />
+            <Route path="/" element={<Navigate to="/member/dashboard" replace />} />
+
             {/* === ADMIN ROUTES === */}
             <Route path="/users/manage" element={<ManageUsers />} />
-            <Route path="/books/manage" element={<ManageBooks />} />  
+            <Route path="/books/manage" element={<ManageBooks />} />
 
             <Route path="/loans/current" element={<LoansActive />} />
             <Route path="/loans/history" element={<LoansHistory />} />
@@ -67,21 +67,17 @@ function Layout() {
             <Route path="/reservations/update" element={<ReservationsUpdate />} />
             <Route path="/reservations/delete" element={<ReservationsCancel />} />
 
-            {/* === USER ROUTES === */}
-            <Route path="/loans/borrow/:id" element={<BooksBorrow />} />
-            <Route path="/loans/return/:id" element={<BooksReturn />} />
-            <Route path="/fines/view-pay/:id" element={<FinesViewPay />} />
-            <Route path="/loans/history/:id" element={<LoansUserHistory />} />
-            <Route path="/loans/status/:id" element={<LoansUserStatus />} />
+            {/* === MEMBER ROUTES === */}
+            <Route path="/member/loans/borrow" element={<BorrowBooks />} />
+            <Route path="/member/loans/status" element={<ManageLoansStatus />} />
+            <Route path="/member/loans/history" element={<ViewLoansHistory />} />
+            <Route path="/member/reservations" element={<ManageUserReservations />} />
 
-            <Route path="/reservations/add/:id" element={<ReservationsUserAdd />} />
-            <Route path="/reservations/cancel/:id" element={<ReservationsUserCancel />} />
-            <Route path="/reservations/view/:id" element={<ReservationsUserView />} />
-
-            {/* Default route */}
-            <Route path="*" element={<h2>Welcome to LMS Dashboard</h2>} />
-
+            {/* === User Profile === */}
             <Route path="/profile" element={<UserProfile />} />
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/member/dashboard" replace />} />
           </Routes>
         </div>
       </div>

@@ -1,5 +1,5 @@
 // src/context/AuthContext.js
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useContext } from "react";
 import { userApi } from "../api/userApi";
 import Swal from "sweetalert2";
 
@@ -58,3 +58,11 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>{children}</AuthContext.Provider>
   );
 }
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

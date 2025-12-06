@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class BookService {
+	
 	private final BookRepository bookRepository;
 
 	public List<Book> getAll() {
@@ -69,4 +70,5 @@ public class BookService {
 	public void delete(Integer id) {
 		bookRepository.deleteById(id);
 	}
+	
 }
