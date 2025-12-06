@@ -12,13 +12,9 @@ import "./styles/styles.css";
 
 import ManageUsers from "./pages/Admin/User/ManageUsers";
 import ManageBooks from "./pages/Admin/Books/ManageBooks";
-
 import ActiveLoans from "./pages/Admin/BookLoans/ActiveLoans";
 import LoansHistory from "./pages/Admin/BookLoans/LoansHistory";
-
-import ReservationsCancel from "./pages/Admin/Reservations/ReservationsCancel";
-import ReservationsUpdate from "./pages/Admin/Reservations/ReservationsUpdate";
-import ReservationsView from "./pages/Admin/Reservations/ReservationsView";
+import ManageReservations from "./pages/Admin/Reservations/ManageReservations";
 
 import BorrowBooks from "./pages/User/BookLoans/BorrowBooks";
 import ManageLoansStatus from "./pages/User/BookLoans/ManageLoansStatus";
@@ -72,9 +68,7 @@ function Layout() {
                 <Route path="/admin/books/manage" element={<ManageBooks />} />
                 <Route path="/admin/loans/current" element={<ActiveLoans />} />
                 <Route path="/admin/loans/history" element={<LoansHistory />} />
-                <Route path="/admin/reservations/list" element={<ReservationsView />} />
-                <Route path="/admin/reservations/update" element={<ReservationsUpdate />} />
-                <Route path="/admin/reservations/delete" element={<ReservationsCancel />} />
+                <Route path="/admin/reservations/manage" element={<ManageReservations />} />
               </>
             )}
 

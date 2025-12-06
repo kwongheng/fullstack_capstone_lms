@@ -78,7 +78,7 @@ export default function Sidebar() {
         <Link to="/admin/books/manage">Manage Books</Link>
         <Link to="/admin/loans/current">Active Loans</Link>
         <Link to="/admin/loans/history">Loan History</Link>
-        <Link to="/admin/reservations/list">All Reservations</Link>
+        <Link to="/admin/reservations/manage">All Reservations</Link>
       </div>
     </div>
   );

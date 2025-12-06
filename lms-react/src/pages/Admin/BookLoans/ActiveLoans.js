@@ -4,14 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { borrowApi } from "../../../api/borrowApi";
 import Swal from "sweetalert2";
 import { format } from "date-fns";
-import { 
-  RefreshCw, 
-  Undo2, 
-  User, 
-  BookOpen, 
-  DollarSign, 
+import {
+  RefreshCw,
+  Undo2,
+  User,
+  BookOpen,
+  DollarSign,
   Search,
-  Filter 
+  Filter,
 } from "lucide-react";
 
 export default function ActiveLoans() {
@@ -189,87 +189,106 @@ export default function ActiveLoans() {
           <h4>No active loans found</h4>
         </div>
       ) : (
-        <div className="row g-4">
-          {filteredMembers.map(member => {
-            const totalFine = member.loans.reduce((sum, l) => sum + (l.fineAmount || 0), 0);
+        <>
+          <div className="row g-4">
+            {filteredMembers.map(member => {
+              const totalFine = member.loans.reduce((sum, l) => sum + (l.fineAmount || 0), 0);
 
-            return (
-              <div key={member.memberId} className="col-12">
-                <div className="card shadow-sm">
-                  <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">
-                      <User className="me-2" size={20} />
-                      {member.memberId} - {member.fullName}
-                    </h5>
-                    {totalFine > 0 && (
-                      <span className="badge bg-danger fs-6">
-                        <DollarSign size={16} /> Fine: ${totalFine.toFixed(2)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="card-body p-0">
-                    <div className="table-responsive">
-                      <table className="table table-hover mb-0">
-                        <thead className="table-light">
-                          <tr>
-                            <th>ISBN</th>
-                            <th>Title</th>
-                            <th>Borrowed</th>
-                            <th>Due</th>
-                            <th>Fine</th>
-                            <th>Renewals</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {member.loans.map(loan => {
-                            const isOverdue = new Date(loan.dueDate) < new Date();
-                            const canRenew = loan.timesRenew < 2 && !isOverdue && (loan.fineAmount || 0) === 0;
-                            const canReturn = (loan.fineAmount || 0) === 0;
+              return (
+                <div key={member.memberId} className="col-12">
+                  <div className="card shadow-sm">
+                    <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">
+                        <User className="me-2" size={20} />
+                        {member.memberId} - {member.fullName}
+                      </h5>
+                      {totalFine > 0 && (
+                        <span className="badge bg-danger fs-6">
+                          <DollarSign size={16} /> Fine: ${totalFine.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="card-body p-0">
+                      <div className="table-responsive">
+                        <table className="table table-hover mb-0">
+                          <thead className="table-light">
+                            <tr>
+                              <th>ISBN</th>
+                              <th>Title</th>
+                              <th>Borrowed</th>
+                              <th>Due</th>
+                              <th>Fine</th>
+                              <th>Renewals</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {member.loans.map(loan => {
+                              const isOverdue = new Date(loan.dueDate) < new Date();
+                              const canRenew = loan.timesRenew < 2 && !isOverdue && (loan.fineAmount || 0) === 0;
+                              const canReturn = (loan.fineAmount || 0) === 0;
 
-                            return (
-                              <tr key={loan.id}>
-                                <td>{loan.book.isbn}</td>
-                                <td>{loan.book.title}</td>
-                                <td>{format(new Date(loan.borrowDate), "dd MMM yyyy")}</td>
-                                <td className={isOverdue ? "text-danger fw-bold" : ""}>
-                                  {format(new Date(loan.dueDate), "dd MMM yyyy")}
-                                  {isOverdue && " (Overdue)"}
-                                </td>
-                                <td className={(loan.fineAmount || 0) > 0 ? "text-danger fw-bold" : ""}>
-                                  ${(loan.fineAmount || 0).toFixed(2)}
-                                </td>
-                                <td>{loan.timesRenew}/2</td>
-                                <td>
-                                  <div className="btn-group" role="group">
-                                    <button
-                                      className="btn btn-sm btn-outline-primary"
-                                      onClick={() => handleRenew(loan.id)}
-                                      disabled={!canRenew}
-                                    >
-                                      <RefreshCw size={14} />
-                                    </button>
-                                    <button
-                                      className="btn btn-sm btn-outline-danger"
-                                      onClick={() => handleReturn(loan.id)}
-                                      disabled={!canReturn}
-                                    >
-                                      <Undo2 size={14} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                              return (
+                                <tr key={loan.id}>
+                                  <td>{loan.book.isbn}</td>
+                                  <td>{loan.book.title}</td>
+                                  <td>{format(new Date(loan.borrowDate), "dd MMM yyyy")}</td>
+                                  <td className={isOverdue ? "text-danger fw-bold" : ""}>
+                                    {format(new Date(loan.dueDate), "dd MMM yyyy")}
+                                    {isOverdue && " (Overdue)"}
+                                  </td>
+                                  <td className={(loan.fineAmount || 0) > 0 ? "text-danger fw-bold" : ""}>
+                                    ${(loan.fineAmount || 0).toFixed(2)}
+                                  </td>
+                                  <td>{loan.timesRenew}/2</td>
+                                  <td>
+                                    <div className="btn-group" role="group">
+                                      <button
+                                        className="btn btn-sm btn-outline-primary"
+                                        onClick={() => handleRenew(loan.id)}
+                                        disabled={!canRenew}
+                                        title="Renew (+14 days)"
+                                      >
+                                        <RefreshCw size={14} />
+                                      </button>
+                                      <button
+                                        className="btn btn-sm btn-outline-danger"
+                                        onClick={() => handleReturn(loan.id)}
+                                        disabled={!canReturn}
+                                        title="Return Book"
+                                      >
+                                        <Undo2 size={14} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+
+          {/* Summary Footer */}
+          <div className="mt-5 p-4 bg-light border rounded shadow-sm">
+            <div className="d-flex justify-content-between align-items-center text-muted small fw-bold">
+              <span>
+                {filteredMembers.length} member{filteredMembers.length !== 1 ? "s" : ""} with active loans
+              </span>
+              <span>
+                Total active books borrowed:{" "}
+                <strong className="text-primary fs-5">
+                  {filteredMembers.reduce((sum, m) => sum + m.loans.length, 0)}
+                </strong>
+              </span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
