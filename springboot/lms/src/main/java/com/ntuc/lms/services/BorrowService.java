@@ -31,16 +31,20 @@ public class BorrowService {
 	}
 
 	public List<Borrow> getActiveBorrows() {
-		return borrowRepository.findByIsReturnedFalse();
+	    return borrowRepository.findByIsReturnedFalse();  // ← ONLY false = active
+	}
+
+	public List<Borrow> getActiveBorrowsByUser(Integer userId) {
+	    return borrowRepository.findByMemberUserIdAndIsReturnedFalse(userId);
 	}
 
 	public Borrow borrowBook(Integer memberId, Integer bookId) {
 		Member member = memberRepository.findById(memberId).orElseThrow(() -> new RuntimeException("Member not found"));
 		Book book = bookRepository.findById(bookId).orElseThrow(() -> new RuntimeException("Book not found"));
 
-	    boolean alreadyBorrowed = borrowRepository
-	            .existsByMemberUserIdAndBookIdAndIsReturnedFalse(memberId, bookId);
-
+		boolean alreadyBorrowed = borrowRepository
+		        .findByIsReturnedFalseAndMember_User_IdAndBook_Id(memberId, bookId)
+		        .isPresent();
 	    if (alreadyBorrowed) {
 	        throw new RuntimeException("You have already borrowed this book.");
 	    }
@@ -66,21 +70,19 @@ public class BorrowService {
 	    Borrow borrow = borrowRepository.findById(borrowId)
 	        .orElseThrow(() -> new RuntimeException("Borrow record not found"));
 
-	    if (borrow.isReturned()) {
+	    if (borrow.getIsReturned()) {
 	        throw new RuntimeException("Book already returned");
 	    }
 
-	    borrow.setReturned(true);
+	    borrow.setReturned(true);  // sets NULL in DB
 	    borrow.setReturnDate(LocalDateTime.now());
 
 	    Book book = borrow.getBook();
-
-	    // SAFE INCREMENT — never exceed total_copies
 	    if (book.getAvailableCopies() < book.getTotalCopies()) {
 	        book.setAvailableCopies(book.getAvailableCopies() + 1);
 	    }
-
 	    bookRepository.save(book);
+
 	    return borrowRepository.saveAndFlush(borrow);
 	}
 	
@@ -89,7 +91,7 @@ public class BorrowService {
 		Borrow borrow = borrowRepository.findById(borrowId)
 				.orElseThrow(() -> new RuntimeException("Borrow record not found"));
 
-		if (borrow.isReturned()) {
+		if (borrow.getIsReturned()) {
 			throw new RuntimeException("Cannot renew a returned book");
 		}
 		if (borrow.getTimesRenew() >= 2) {
@@ -108,7 +110,7 @@ public class BorrowService {
 	public Borrow calculateFine(Integer borrowId) {
 		Borrow borrow = borrowRepository.findById(borrowId).orElseThrow(() -> new RuntimeException("Borrow not found"));
 
-		if (borrow.isReturned()) {
+		if (borrow.getIsReturned()) {
 			// Fine is frozen at return time — do nothing
 			return borrow;
 		}
@@ -133,10 +135,10 @@ public class BorrowService {
 	    Borrow borrow = borrowRepository.findById(borrowId)
 	        .orElseThrow(() -> new RuntimeException("Borrow not found"));
 
-	    if (!borrow.isReturned()) {
-	        borrow.setReturned(true);
+	    if (!borrow.getIsReturned()) {
+	        borrow.setReturned(true);  // sets NULL
 	        borrow.setReturnDate(LocalDateTime.now());
-
+	        
 	        Book book = borrow.getBook();
 	        if (book.getAvailableCopies() < book.getTotalCopies()) {
 	            book.setAvailableCopies(book.getAvailableCopies() + 1);
@@ -149,19 +151,9 @@ public class BorrowService {
 	    return borrowRepository.save(borrow);
 	}
 	
-	public List<Borrow> getActiveBorrowsByUser(Integer userId) {
-	    return borrowRepository.findByMemberUserIdAndIsReturnedFalse(userId);
-	}
-	
 	public List<BorrowSummary> getUserBorrowSummary(Integer userId) {
 	    return borrowRepository.findByMemberUserId(userId).stream()
-	            .map(b -> new BorrowSummary(
-	                    b.getId(),
-	                    b.getBook().getId(),
-	                    b.getBook().getTitle(),
-	                    b.getDueDate(),
-	                    b.isReturned()
-	            ))
+	            .map(BorrowSummary::new)  
 	            .toList();
 	}
 }

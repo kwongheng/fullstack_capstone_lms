@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
 import { borrowApi } from "../../../api/borrowApi";
 import { format } from "date-fns";
-import { History, BookOpen, DollarSign, CheckCircle2 } from "lucide-react";
+import { History, BookOpen, DollarSign } from "lucide-react";
 
 export default function ViewLoansHistory() {
   const { user } = useAuth();

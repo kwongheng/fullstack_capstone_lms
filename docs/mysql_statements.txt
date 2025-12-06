@@ -41,57 +41,30 @@ CREATE TABLE BOOK (
     
 );
 
--- The rest of the tables remain exactly the same
-CREATE TABLE BORROW (
-    id            INT PRIMARY KEY AUTO_INCREMENT,
-    user_id       INT NOT NULL,
-    book_id       INT NOT NULL,
-    borrow_date   DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    due_date      DATETIME NOT NULL,
-    return_date   DATETIME NULL,
-    fine_amount   DECIMAL(6,2) DEFAULT 0.00 CHECK (fine_amount <= 20.00),
-    times_renew   TINYINT DEFAULT 0 CHECK (times_renew <= 2),
-    is_returned   BOOLEAN DEFAULT FALSE NOT NULL,
-    
-    CONSTRAINT FK_BORROW_MEMBER 
-        FOREIGN KEY (user_id) REFERENCES MEMBER(user_id) 
-        ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT FK_BORROW_BOOK 
-        FOREIGN KEY (book_id) REFERENCES BOOK(id) 
-        ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT CHK_return_date 
-        CHECK (return_date IS NULL OR return_date >= borrow_date),
-    CONSTRAINT UQ_USER_BOOK_ACTIVE 
-        UNIQUE (user_id, book_id, is_returned)
-);
-
-DROP TABLE IF EXISTS BORROW;
 
 CREATE TABLE BORROW (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
     book_id INT NOT NULL,
     borrow_date DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    due_date DATETIME NULL,
+    due_date DATETIME NOT NULL,
     return_date DATETIME NULL,
     fine_amount DECIMAL(6,2) DEFAULT 0.00 CHECK (fine_amount <= 20.00),
-    fine_paid_at DATETIME NULL,
-    times_renew TINYINT DEFAULT 0 CHECK (times_renew <= 2), 
+    fine_paid_at DATETIME NULL,  
+    times_renew TINYINT DEFAULT 0 CHECK (times_renew <= 2),
     is_returned BOOLEAN NULL DEFAULT FALSE,
-
-    UNIQUE KEY UQ_USER_BOOK_ACTIVE (user_id, book_id, is_returned),
-
+   
     CONSTRAINT FK_BORROW_MEMBER
         FOREIGN KEY (user_id) REFERENCES MEMBER(user_id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-        
     CONSTRAINT FK_BORROW_BOOK
         FOREIGN KEY (book_id) REFERENCES BOOK(id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-
     CONSTRAINT CHK_return_date
-        CHECK (return_date IS NULL OR return_date >= borrow_date)
-) 
+        CHECK (return_date IS NULL OR return_date >= borrow_date),
+    CONSTRAINT UQ_USER_BOOK_ACTIVE
+        UNIQUE (user_id, book_id, is_returned)
+);
 
 CREATE TABLE RESERVATION (
     id                INT PRIMARY KEY AUTO_INCREMENT,

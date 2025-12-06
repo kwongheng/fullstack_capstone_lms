@@ -8,7 +8,7 @@ export default function Sidebar() {
   const location = useLocation();
 
   const [openMenu, setOpenMenu] = useState({
-    loans: true,        // open by default for better UX
+    loans: true, // open by default for better UX
     reservations: false,
   });
 
@@ -22,7 +22,7 @@ export default function Sidebar() {
   };
 
   // Better active detection for nested routes
-  const isActive = (path) => location.pathname.startsWith(path);
+  const isActive = (path) => location.pathname === path;
 
   if (!user) return null;
 
@@ -38,22 +38,13 @@ export default function Sidebar() {
           <span className={`arrow ${openMenu.loans ? "down" : ""}`} />
         </div>
         <div className={`submenu ${openMenu.loans ? "open" : ""}`}>
-          <Link
-            to="/member/loans/borrow"
-            className={isActive("/member/loans/borrow") ? "active" : ""}
-          >
+          <Link to="/member/loans/borrow" className={isActive("/member/loans/borrow") ? "active" : ""}>
             Borrow Books
           </Link>
-          <Link
-            to="/member/loans/status"
-            className={isActive("/member/loans/status") ? "active" : ""}
-          >
+          <Link to="/member/loans/status" className={isActive("/member/loans/status") ? "active" : ""}>
             Manage Status
           </Link>
-          <Link
-            to="/member/loans/history"
-            className={isActive("/member/loans/history") ? "active" : ""}
-          >
+          <Link to="/member/loans/history" className={isActive("/member/loans/history") ? "active" : ""}>
             View History
           </Link>
         </div>
@@ -64,10 +55,10 @@ export default function Sidebar() {
           <span className={`arrow ${openMenu.reservations ? "down" : ""}`} />
         </div>
         <div className={`submenu ${openMenu.reservations ? "open" : ""}`}>
-          <Link
-            to="/member/reservations"
-            className={isActive("/member/reservations") ? "active" : ""}
-          >
+          <Link to="/member/reservations/make" className={isActive("/member/reservations/make") ? "active" : ""}>
+            Make Reservations
+          </Link>
+          <Link to="/member/reservations/manage" className={isActive("/member/reservations/manage") ? "active" : ""}>
             Manage Reservations
           </Link>
         </div>
@@ -83,11 +74,11 @@ export default function Sidebar() {
         <span>Admin Dashboard</span>
       </div>
       <div className="submenu open">
-        <Link to="/users/manage">Manage Users</Link>
-        <Link to="/books/manage">Manage Books</Link>
-        <Link to="/loans/current">Active Loans</Link>
-        <Link to="/loans/history">Loan History</Link>
-        <Link to="/reservations/list">All Reservations</Link>
+        <Link to="/admin/users/manage">Manage Users</Link>
+        <Link to="/admin/books/manage">Manage Books</Link>
+        <Link to="/admin/loans/current">Active Loans</Link>
+        <Link to="/admin/loans/history">Loan History</Link>
+        <Link to="/admin/reservations/list">All Reservations</Link>
       </div>
     </div>
   );

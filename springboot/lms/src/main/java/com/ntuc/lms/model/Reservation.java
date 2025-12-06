@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 //model/Reservation.java
 @Entity
 @Table(name = "RESERVATION",
@@ -37,9 +39,8 @@ public class Reservation {
     @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
     
-    @Column(name = "is_fulfilled",
-            nullable = false,
-            columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Column(name = "is_fulfilled", nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @JsonProperty("fulfilled") 
     @Builder.Default
     private boolean isFulfilled = false;
 }

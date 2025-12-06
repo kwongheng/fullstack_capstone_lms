@@ -6,15 +6,15 @@ import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
 import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
-import MemberDashboard from "./pages/User/MemberDashboard";  
+import MemberDashboard from "./pages/User/MemberDashboard";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
 import "./styles/styles.css";
 
 import ManageUsers from "./pages/Admin/User/ManageUsers";
 import ManageBooks from "./pages/Admin/Books/ManageBooks";
 
-import LoansActive from "./pages/Admin/BookLoans/LoansActive";
+import ActiveLoans from "./pages/Admin/BookLoans/ActiveLoans";
 import LoansHistory from "./pages/Admin/BookLoans/LoansHistory";
-import LoansUpdate from "./pages/Admin/BookLoans/LoansUpdate";
 
 import ReservationsCancel from "./pages/Admin/Reservations/ReservationsCancel";
 import ReservationsUpdate from "./pages/Admin/Reservations/ReservationsUpdate";
@@ -24,6 +24,7 @@ import BorrowBooks from "./pages/User/BookLoans/BorrowBooks";
 import ManageLoansStatus from "./pages/User/BookLoans/ManageLoansStatus";
 import ViewLoansHistory from "./pages/User/BookLoans/ViewLoansHistory";
 import ManageUserReservations from "./pages/User/Reservations/ManageUserReservations";
+import MakeReservations from "./pages/User/Reservations/MakeReservations";
 
 import UserProfile from "./pages/UserProfile";
 
@@ -51,33 +52,45 @@ function Layout() {
         <Sidebar />
         <div className="content-area">
           <Routes>
-            {/* === MEMBER DASHBOARD — NEW LANDING PAGE === */}
-            <Route path="/member/dashboard" element={<MemberDashboard />} />
-            <Route path="/" element={<Navigate to="/member/dashboard" replace />} />
+            {/* ROLE-BASED LANDING PAGE — ONE LINE */}
+            {user.role === "Admin" ? (
+              <>
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+              </>
+            ) : user.role === "Member" ? (
+              <>
+                <Route path="/member/dashboard" element={<MemberDashboard />} />
+                <Route path="*" element={<Navigate to="/member/dashboard" replace />} />
+              </>
+            ) : null}
 
-            {/* === ADMIN ROUTES === */}
-            <Route path="/users/manage" element={<ManageUsers />} />
-            <Route path="/books/manage" element={<ManageBooks />} />
+            {/* ADMIN ROUTES — ONLY FOR ADMIN */}
+            {user.role === "Admin" && (
+              <>
+                <Route path="/admin/users/manage" element={<ManageUsers />} />
+                <Route path="/admin/books/manage" element={<ManageBooks />} />
+                <Route path="/admin/loans/current" element={<ActiveLoans />} />
+                <Route path="/admin/loans/history" element={<LoansHistory />} />
+                <Route path="/admin/reservations/list" element={<ReservationsView />} />
+                <Route path="/admin/reservations/update" element={<ReservationsUpdate />} />
+                <Route path="/admin/reservations/delete" element={<ReservationsCancel />} />
+              </>
+            )}
 
-            <Route path="/loans/current" element={<LoansActive />} />
-            <Route path="/loans/history" element={<LoansHistory />} />
-            <Route path="/loans/update/:id" element={<LoansUpdate />} />
+            {/* MEMBER ROUTES — ONLY FOR MEMBER */}
+            {user.role === "Member" && (
+              <>
+                <Route path="/member/loans/borrow" element={<BorrowBooks />} />
+                <Route path="/member/loans/status" element={<ManageLoansStatus />} />
+                <Route path="/member/loans/history" element={<ViewLoansHistory />} />
+                <Route path="/member/reservations/manage" element={<ManageUserReservations />} />
+                <Route path="/member/reservations/make" element={<MakeReservations />} />
+              </>
+            )}
 
-            <Route path="/reservations/list" element={<ReservationsView />} />
-            <Route path="/reservations/update" element={<ReservationsUpdate />} />
-            <Route path="/reservations/delete" element={<ReservationsCancel />} />
-
-            {/* === MEMBER ROUTES === */}
-            <Route path="/member/loans/borrow" element={<BorrowBooks />} />
-            <Route path="/member/loans/status" element={<ManageLoansStatus />} />
-            <Route path="/member/loans/history" element={<ViewLoansHistory />} />
-            <Route path="/member/reservations" element={<ManageUserReservations />} />
-
-            {/* === User Profile === */}
+            {/* USER PROFILE */}
             <Route path="/profile" element={<UserProfile />} />
-
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/member/dashboard" replace />} />
           </Routes>
         </div>
       </div>
