@@ -3,196 +3,121 @@ import { useContext, useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AuthContext } from "../context/AuthContext";
 import { userApi } from "../api/userApi";
+import { useMembers } from "../hooks/useMembers";
+import { format, addYears, parseISO } from "date-fns";
 import Swal from "sweetalert2";
 
 export default function UserProfile() {
   const { user: currentUser } = useContext(AuthContext);
   const queryClient = useQueryClient();
 
-  // Fetch fresh user data from backend
-  const { data: user, isLoading } = useQuery({
+  // Load user profile
+  const { data: user, isLoading: loadingUser } = useQuery({
     queryKey: ["userProfile", currentUser?.id],
-    queryFn: () => userApi.getUserById(currentUser.id).then((res) => res.data),
+    queryFn: () => userApi.getUserById(currentUser.id).then(res => res.data),
     enabled: !!currentUser?.id,
   });
 
+  // Load member data from /api/members/{id}
+  const { useMember } = useMembers();
+  const memberQuery = useMember(currentUser?.id);
+  const member = memberQuery.data;
+  const isLoadingMember = memberQuery.isLoading;
+
   const [isEditing, setIsEditing] = useState(false);
-  const [form, setForm] = useState({
-    email: "",
-    fullName: "",
-    phone: "",
-    address: "",
-    role: "",
-    passwordHash: "",
-  });
+  const [form, setForm] = useState({ fullName: "", phone: "", address: "" });
   const [phoneError, setPhoneError] = useState("");
 
-  // Sync form when user data loads
   useEffect(() => {
     if (user) {
       setForm({
-        email: user.email || "",
         fullName: user.fullName || "",
         phone: user.phone || "",
         address: user.address || "",
-        role: user.role || "Member",
-        passwordHash: user.passwordHash || "",
       });
     }
   }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-
+    setForm(prev => ({ ...prev, [name]: value }));
     if (name === "phone") {
-      if (value && (value.startsWith("0") || !/^\d+$/.test(value))) {
-        setPhoneError("Phone must contain only digits and cannot start with 0");
-      } else {
-        setPhoneError("");
-      }
+      setPhoneError(
+        value && (value.startsWith("0") || !/^\d+$/.test(value))
+          ? "Invalid phone"
+          : ""
+      );
     }
   };
 
   const updateMutation = useMutation({
-    mutationFn: (payload) => userApi.updateUser(currentUser.id, payload),
+    mutationFn: payload => userApi.updateUser(currentUser.id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries(["userProfile", currentUser.id]);
-      queryClient.invalidateQueries(["users"]);
       setIsEditing(false);
-      Swal.fire({
-        icon: "success",
-        title: "Updated!",
-        text: "Your profile has been updated successfully.",
-        timer: 2000,
-        showConfirmButton: false,
-      });
-    },
-    onError: (err) => {
-      Swal.fire("Error", err.response?.data || "Failed to update profile", "error");
+      Swal.fire("Success", "Profile updated", "success");
     },
   });
 
   const handleSave = () => {
-    if (!form.fullName.trim()) {
-      Swal.fire("Required", "Full Name is required", "warning");
-      return;
-    }
-    if (phoneError) {
-      Swal.fire("Invalid Phone", phoneError, "warning");
-      return;
-    }
-
-    const payload = {
-      email: form.email.trim(),
+    if (!form.fullName.trim()) return Swal.fire("Error", "Full Name required", "warning");
+    if (phoneError) return Swal.fire("Invalid", phoneError, "warning");
+    updateMutation.mutate({
       fullName: form.fullName.trim(),
       phone: form.phone.trim() || null,
       address: form.address.trim() || null,
-      role: form.role,
-      passwordHash: form.passwordHash,
-    };
-
-    updateMutation.mutate(payload);
-  };
-
-  const openChangePasswordPopup = () => {
-    Swal.fire({
-      title: "Change Password",
-      html: `
-        <input type="password" id="new-password" class="swal2-input" placeholder="New password" autocomplete="new-password">
-        <input type="password" id="confirm-password" class="swal2-input" placeholder="Confirm new password" autocomplete="new-password">
-      `,
-      focusConfirm: false,
-      showCancelButton: true,
-      confirmButtonText: "Change Password",
-      cancelButtonText: "Cancel",
-      preConfirm: () => {
-        const newPass = document.getElementById("new-password").value;
-        const confirmPass = document.getElementById("confirm-password").value;
-
-        if (!newPass || !confirmPass) {
-          Swal.showValidationMessage("Both fields are required");
-          return false;
-        }
-        if (newPass !== confirmPass) {
-          Swal.showValidationMessage("Passwords do not match");
-          return false;
-        }
-        if (newPass.length < 6) {
-          Swal.showValidationMessage("Password must be at least 6 characters");
-          return false;
-        }
-        return newPass;
-      },
-    }).then((result) => {
-      if (result.isConfirmed) {
-        // Stub — replace with real API call when ready
-        Swal.fire({
-          icon: "success",
-          title: "Password Changed!",
-          text: "Your password has been updated successfully.",
-          timer: 2000,
-          showConfirmButton: false,
-        });
-      }
     });
   };
 
-  if (isLoading) {
+  if (loadingUser || isLoadingMember) {
     return (
       <div className="container py-5 text-center">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
-        <p className="mt-3">Loading your profile...</p>
+        <div className="spinner-border text-primary" />
+        <p className="mt-3">Loading profile...</p>
       </div>
     );
   }
 
-  if (!user) {
-    return <div className="p-5 text-center">Unable to load profile.</div>;
-  }
+  if (!user) return <div className="p-5 text-center">Profile not found</div>;
 
   const memberId = user.role === "Member" ? `MEM-${String(user.id).padStart(4, "0")}` : null;
 
+  // DEBUG: Remove this in production
+  console.log("Member data from /api/members/12:", member);
+
+  const joinDateRaw = member?.joinDate;
+  const joinDate = joinDateRaw ? parseISO(joinDateRaw) : null;
+  const expiryDate = joinDate ? addYears(joinDate, 1) : null;
+  const status = member?.status || "Active";
+  const statusColor = status === "Active" ? "bg-success" : status === "Suspended" ? "bg-danger" : "bg-secondary";
+
   return (
-    <div className="container py-5">
+    <div className="container py-4">
       <div className="row justify-content-center">
-        <div className="col-lg-8">
-          <div className="card shadow-lg border-0">
-            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-              <h3 className="mb-0">
-                <i className="bi bi-person-circle me-2"></i>
-                My Profile
-              </h3>
+        <div className="col-xl-6 col-lg-7 col-md-8">
+          <div className="card shadow-sm border-0">
+
+            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+              <h5 className="mb-0 fw-bold">My Profile</h5>
               {!isEditing ? (
                 <button className="btn btn-light btn-sm" onClick={() => setIsEditing(true)}>
-                  <i className="bi bi-pencil"></i> Edit Profile
+                  Edit
                 </button>
               ) : (
                 <div>
-                  <button
-                    className="btn btn-success btn-sm me-2"
-                    onClick={handleSave}
-                    disabled={updateMutation.isPending}
-                  >
-                    {updateMutation.isPending ? "Saving..." : "Confirm"}
+                  <button className="btn btn-success btn-sm me-2" onClick={handleSave}>
+                    Save
                   </button>
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => {
                       setIsEditing(false);
                       setPhoneError("");
-                      if (user) {
-                        setForm({
-                          email: user.email || "",
-                          fullName: user.fullName || "",
-                          phone: user.phone || "",
-                          address: user.address || "",
-                          role: user.role || "Member",
-                          passwordHash: user.passwordHash || "",
-                        });
-                      }
+                      setForm({
+                        fullName: user.fullName || "",
+                        phone: user.phone || "",
+                        address: user.address || "",
+                      });
                     }}
                   >
                     Cancel
@@ -201,80 +126,79 @@ export default function UserProfile() {
               )}
             </div>
 
-            <div className="card-body p-5">
-              <div className="row g-4">
-                <div className="col-md-6">
-                  <label className="form-label fw-bold">Email</label>
-                  <input className="form-control" value={form.email} disabled />
-                </div>
+            <div className="card-body p-0">
 
-                <div className="col-md-6">
-                  <label className="form-label fw-bold">Full Name *</label>
-                  <input
-                    name="fullName"
-                    className="form-control"
-                    value={form.fullName}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                  />
-                </div>
-
-                <div className="col-md-6">
-                  <label className="form-label fw-bold">Phone</label>
-                  <input
-                    name="phone"
-                    className={`form-control ${phoneError ? "is-invalid" : ""}`}
-                    value={form.phone}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    placeholder="e.g. 81234567"
-                  />
-                  {phoneError && <div className="invalid-feedback">{phoneError}</div>}
-                </div>
-
-                <div className="col-md-6">
-                  <label className="form-label fw-bold">Role</label>
-                  <div className="input-group">
-                    <input className="form-control" value={form.role} disabled />
-                    <span className="input-group-text">
-                      <span className={`badge ${form.role === "Admin" ? "bg-danger" : "bg-primary"}`}>
-                        {form.role}
+              {/* Membership Row */}
+              {user.role === "Member" && (
+                <div className="border-bottom px-4 py-3 bg-light">
+                  <div className="row small text-muted g-3">
+                    <div className="col">Member ID</div>
+                    <div className="col">Date Joined</div>
+                    <div className="col">Expires On</div>
+                    <div className="col">Status</div>
+                  </div>
+                  <div className="row fw-bold small g-3">
+                    <div className="col text-primary">{memberId}</div>
+                    <div className="col text-success">
+                      {joinDate ? format(joinDate, "dd MMM yyyy") : "—"}
+                    </div>
+                    <div className="col text-warning">
+                      {expiryDate ? format(expiryDate, "dd MMM yyyy") : "—"}
+                    </div>
+                    <div className="col">
+                      <span className={`badge ${statusColor} px-2 py-1`}>
+                        {status}
                       </span>
-                    </span>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                {memberId && (
-                  <div className="col-12">
-                    <label className="form-label fw-bold">Member ID</label>
-                    <input className="form-control" value={memberId} disabled />
-                  </div>
-                )}
+              <div className="p-4">
+                <table className="table table-borderless table-sm mb-0 small">
+                  <tbody>
+                    <tr>
+                      <td className="text-muted pe-3" style={{ width: "120px" }}>Full Name *</td>
+                      <td>
+                        <input name="fullName" className="form-control form-control-sm" value={form.fullName} onChange={handleChange} disabled={!isEditing} />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted">Email</td>
+                      <td><span className="text-dark">{user.email}</span></td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted">Phone</td>
+                      <td>
+                        <input name="phone" className={`form-control form-control-sm ${phoneError ? "is-invalid" : ""}`} value={form.phone} onChange={handleChange} disabled={!isEditing} />
+                        {phoneError && <div className="text-danger small mt-1">{phoneError}</div>}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted align-top">Address</td>
+                      <td>
+                        <textarea name="address" className="form-control form-control-sm" rows={2} value={form.address} onChange={handleChange} disabled={!isEditing} />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-muted">Account Type</td>
+                      <td>
+                        <span className={`badge ${user.role === "Admin" ? "bg-danger" : "bg-primary"} px-3 py-1`}>
+                          {user.role}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
 
-                <div className="col-12">
-                  <label className="form-label fw-bold">Address</label>
-                  <textarea
-                    name="address"
-                    className="form-control"
-                    rows="4"
-                    value={form.address}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    placeholder="Enter your address..."
-                  />
+                <hr className="my-4" />
+                <div className="text-center">
+                  <button className="btn btn-outline-primary btn-sm px-5" onClick={() => {
+                    Swal.fire("Info", "Password change not implemented", "info");
+                  }}>
+                    Change Password
+                  </button>
                 </div>
-              </div>
-
-              <hr className="my-5" />
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  className="btn btn-outline-primary px-5"
-                  onClick={openChangePasswordPopup}
-                >
-                  Change Password
-                </button>
               </div>
             </div>
           </div>

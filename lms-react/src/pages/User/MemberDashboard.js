@@ -69,6 +69,7 @@ export default function MemberDashboard() {
                 <ul className="small text-muted mb-0">
                   <li>Maximum active loans: <strong>3 books</strong></li>
                   <li>Renew allowed: <strong>maximum 2 times</strong> before due date</li>
+                  <li>A book that is reserved by others cannot be borrowed</li>
                   <li>Fine starts 1 day after due date: <strong>$0.50 per day</strong></li>
                   <li>Maximum fine per book: <strong>$20.00</strong></li>
                   <li className="text-danger fw-bold">
