@@ -13,12 +13,15 @@ export default function MakeReservations() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  // Search states — now matches BorrowBooks & ManageBooks exactly
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
+  const [queryValue, setQueryValue] = useState(""); // triggers actual filter
+
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
-  // Get user's active reservations
+  // User's active reservations
   const { data: activeReservations = [] } = useQuery({
     queryKey: ["reservations", "user", user?.id, "active"],
     queryFn: () =>
@@ -29,7 +32,7 @@ export default function MakeReservations() {
     staleTime: 1000 * 30,
   });
 
-  // Get all books
+  // All books
   const { data: books = [], isLoading } = useQuery({
     queryKey: ["books"],
     queryFn: () => bookApi.getAll().then(res => res.data),
@@ -40,30 +43,56 @@ export default function MakeReservations() {
   const canReserveMore = currentCount + cart.length < MAX_RESERVATIONS;
 
   const reservedBookIds = new Set(activeReservations.map(r => r.book.id));
-  const reservableBooks = books.filter(book =>
-    book.availableCopies === 0 && !reservedBookIds.has(book.id)
+
+  // Only books with 0 copies available AND not already reserved by this user
+  const reservableBooks = books.filter(
+    book => book.availableCopies === 0 && !reservedBookIds.has(book.id)
   );
 
+  // Filtering — now based on queryValue (clicked Query), not live typing
   const filteredBooks = useMemo(() => {
-    if (!searchValue.trim()) return reservableBooks;
+    if (!queryValue.trim()) return reservableBooks;
 
-    const value = searchValue.toLowerCase().trim();
+    const value = queryValue.trim();
+    const lowerValue = value.toLowerCase();
+
     return reservableBooks.filter(book => {
       switch (searchField) {
         case "isbn":
-          return book.isbn.toLowerCase().includes(value);
+          return book.isbn.toLowerCase().includes(lowerValue);
         case "title":
-          return book.title.toLowerCase().includes(value);
+          return book.title.toLowerCase().includes(lowerValue);
         case "author":
-          return book.author.toLowerCase().includes(value);
+          return book.author.toLowerCase().includes(lowerValue);
+        case "category":
+          return book.category?.toLowerCase().includes(lowerValue);
+        case "publisher":
+          return book.publisher?.toLowerCase().includes(lowerValue);
+        case "year":
+          if (value.includes("-")) {
+            const [startStr, endStr] = value.split("-").map(s => s.trim());
+            const start = startStr ? parseInt(startStr, 10) : null;
+            const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
+            const year = book.publicationYear;
+
+            if (start && !end) return year >= start;        // e.g. "2010-"
+            if (!start && end) return year <= end;          // e.g. "-2020"
+            if (start && end) return year >= start && year <= end;
+            return true;
+          } else {
+            const searchYear = parseInt(value, 10);
+            return !isNaN(searchYear) && book.publicationYear === searchYear;
+          }
         default:
           return true;
       }
     });
-  }, [reservableBooks, searchValue, searchField]);
+  }, [reservableBooks, queryValue, searchField]);
 
+  const handleQuery = () => setQueryValue(searchValue);
   const handleClear = () => {
     setSearchValue("");
+    setQueryValue("");
     setSearchField("title");
   };
 
@@ -124,7 +153,7 @@ export default function MakeReservations() {
         </button>
       </div>
 
-      {/* Reservation Status */}
+      {/* Reservation Status Card */}
       <div className="card mb-4 shadow-sm bg-info bg-opacity-10 border-info">
         <div className="card-body">
           <h5 className="card-title text-info mb-2">
@@ -136,7 +165,7 @@ export default function MakeReservations() {
         </div>
       </div>
 
-      {/* Search Panel */}
+      {/* Search Panel — now matches BorrowBooks & ManageBooks */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
@@ -150,20 +179,37 @@ export default function MakeReservations() {
                 <option value="title">Title</option>
                 <option value="author">Author</option>
                 <option value="isbn">ISBN</option>
+                <option value="category">Category</option>
+                <option value="publisher">Publisher</option>
+                <option value="year">Publication Year</option>
               </select>
             </div>
             <div className="col-md-6">
-              <label className="form-label fw-bold">Search Term</label>
+              <label className="form-label fw-bold">
+                {searchField === "year" ? "Year (e.g. 2023 or 2015-2020)" : "Search Term"}
+              </label>
               <input
                 type="text"
                 className="form-control"
-                placeholder={`Enter ${searchField}...`}
+                placeholder={
+                  searchField === "year"
+                    ? "e.g. 2023 or 2015-2020"
+                    : `Enter ${searchField}...`
+                }
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
+              {searchField === "year" && (
+                <small className="text-muted d-block mt-1">
+                  Use <code>2015-2020</code> for range • <code>2023</code> for exact
+                </small>
+              )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-outline-secondary w-100" onClick={handleClear}>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>
+                Query
+              </button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>
                 Clear
               </button>
             </div>
@@ -174,8 +220,12 @@ export default function MakeReservations() {
       {/* Books Grid */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
-          <h4>No books available for reservation</h4>
-          <p>Only books with 0 copies available can be reserved.</p>
+          <h4>
+            {queryValue
+              ? "No books found matching your search"
+              : "No books available for reservation"}
+          </h4>
+          <p>Only books with 0 available copies can be reserved.</p>
         </div>
       ) : (
         <div className="row g-4">
@@ -194,13 +244,12 @@ export default function MakeReservations() {
                       <strong>Publisher:</strong> {book.publisher || "—"}<br />
                       <strong>Year:</strong> {book.publicationYear}<br />
                       <strong>Category:</strong> {book.category || "—"}<br />
-                      <strong>Copies:</strong>{" "}
-                      <span className="text-danger">0</span> / {book.totalCopies}
+                      <strong>Copies:</strong> <span className="text-danger">0</span> / {book.totalCopies}
                     </p>
                   </div>
                   <div className="card-footer bg-white">
                     <button
-                      className={`w-100 ${disabled ? "btn btn-secondary" : inCart ? "btn btn-success" : "btn btn-primary"}`}
+                      className={`w-100 ${disabled ? "btn btn-secondary" : inCart ? "btn btn-success" : "btn btn-primary"} btn-sm`}
                       onClick={() => addToCart(book)}
                       disabled={disabled}
                     >
@@ -214,7 +263,7 @@ export default function MakeReservations() {
         </div>
       )}
 
-      {/* Cart Modal */}
+      {/* Cart Modal — unchanged */}
       {showCart && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
