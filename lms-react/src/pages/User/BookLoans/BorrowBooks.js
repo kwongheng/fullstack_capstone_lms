@@ -1,7 +1,8 @@
-// src/pages/member/BorrowBooks.js
-import React, { useState, useMemo } from "react";
+// src/pages/User/BookLoans/BorrowBooks.js
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "../../../context/AuthContext";
+import { useContext } from "react";
+import { AuthContext } from "../../../context/AuthContext";
 import { borrowApi } from "../../../api/borrowApi";
 import { bookApi } from "../../../api/bookApi";
 import Swal from "sweetalert2";
@@ -11,11 +12,12 @@ const MAX_BORROWS = 3;
 const FINE_THRESHOLD = 10.00; // Block borrowing if total fine ≥ $10
 
 export default function BorrowBooks() {
-  const { user } = useAuth();
+  const { user } = useContext(AuthContext);
   const queryClient = useQueryClient();
 
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
+  const [queryValue, setQueryValue] = useState("");
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
@@ -84,20 +86,57 @@ export default function BorrowBooks() {
   });
 
   const filteredBooks = useMemo(() => {
-    if (!searchValue.trim()) return books;
-    const value = searchValue.toLowerCase().trim();
-    return books.filter((b) => {
+    if (!queryValue.trim()) return books;
+
+    const value = queryValue.trim();
+    const lowerValue = value.toLowerCase();
+
+    return books.filter((book) => {
       switch (searchField) {
-        case "isbn": return b.isbn.toLowerCase().includes(value);
-        case "title": return b.title.toLowerCase().includes(value);
-        case "author": return b.author.toLowerCase().includes(value);
-        default: return true;
+        case "isbn":
+          return book.isbn.toLowerCase().includes(lowerValue);
+        case "title":
+          return book.title.toLowerCase().includes(lowerValue);
+        case "author":
+          return book.author.toLowerCase().includes(lowerValue);
+        case "category":
+          return book.category?.toLowerCase().includes(lowerValue);
+        case "publisher":
+          return book.publisher?.toLowerCase().includes(lowerValue);
+        case "year":
+          // Support: 2023 → exact year
+          //         2015-2020 → range
+          //         2010- → from 2010 onwards
+          if (value.includes("-")) {
+            const [startStr, endStr] = value.split("-").map(s => s.trim());
+            const start = startStr ? parseInt(startStr, 10) : null;
+            const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
+            const year = book.publicationYear;
+
+            if (!start && !end) return true;
+            if (start && !end) return year >= start; // e.g. "2010-"
+            if (!start && end) return year <= end;   // unlikely, but safe
+            if (start && end) return year >= start && year <= end;
+          } else {
+            const searchYear = parseInt(value, 10);
+            if (!isNaN(searchYear)) {
+              return book.publicationYear === searchYear;
+            }
+          }
+          return false;
+        default:
+          return true;
       }
     });
-  }, [books, searchValue, searchField]);
+  }, [books, queryValue, searchField]);
+
+  const handleQuery = () => {
+    setQueryValue(searchValue);
+  };
 
   const handleClear = () => {
     setSearchValue("");
+    setQueryValue("");
     setSearchField("title");
   };
 
@@ -159,20 +198,37 @@ export default function BorrowBooks() {
                 <option value="title">Title</option>
                 <option value="author">Author</option>
                 <option value="isbn">ISBN</option>
+                <option value="category">Category</option>
+                <option value="publisher">Publisher</option>
+                <option value="year">Publication Year</option>
               </select>
             </div>
             <div className="col-md-6">
-              <label className="form-label fw-bold">Search Term</label>
+              <label className="form-label fw-bold">
+                {searchField === "year" ? "Year (e.g. 2023 or 2015-2020)" : "Search Term"}
+              </label>
               <input
                 type="text"
                 className="form-control"
-                placeholder={`Enter ${searchField}...`}
+                placeholder={
+                  searchField === "year"
+                    ? "e.g. 2023 or 2015-2020"
+                    : `Enter ${searchField}...`
+                }
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
+              {searchField === "year" && (
+                <small className="text-muted d-block mt-1">
+                  Use <code>2015-2020</code> for range • <code>2023</code> for exact
+                </small>
+              )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-outline-secondary w-100" onClick={handleClear}>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>
+                Query
+              </button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>
                 Clear
               </button>
             </div>
@@ -183,7 +239,7 @@ export default function BorrowBooks() {
       {/* Books Grid */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
-          <h4>{searchValue ? "No books found" : "No books available"}</h4>
+          <h4>{queryValue ? "No books found" : "No books available"}</h4>
         </div>
       ) : (
         <div className="row g-4">
