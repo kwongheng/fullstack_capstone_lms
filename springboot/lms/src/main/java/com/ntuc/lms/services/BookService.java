@@ -1,5 +1,6 @@
 package com.ntuc.lms.services;
 
+import java.time.Year;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -71,4 +72,34 @@ public class BookService {
 		bookRepository.deleteById(id);
 	}
 	
+    public List<Book> searchByCategory(String category) {
+        if (category == null || category.trim().isEmpty()) {
+            return getAll();
+        }
+        return bookRepository.findByCategoryContainingIgnoreCase(category.trim());
+    }
+
+    public List<Book> searchByPublisher(String publisher) {
+        if (publisher == null || publisher.trim().isEmpty()) {
+            return getAll();
+        }
+        return bookRepository.findByPublisherContainingIgnoreCase(publisher.trim());
+    }
+
+    public List<Book> searchByPublicationYear(Integer year) {
+        if (year == null) {
+            return getAll();
+        }
+        return bookRepository.findByPublicationYear(Year.of(year));
+    }
+
+    public List<Book> searchByPublicationYearRange(Integer startYear, Integer endYear) {
+        if (startYear == null && endYear == null) {
+            return getAll();
+        }
+        if (startYear == null || endYear == null || startYear > endYear) {
+            return getAll(); // or throw validation exception if preferred
+        }
+        return bookRepository.findByPublicationYearBetween(Year.of(startYear), Year.of(endYear));
+    }
 }

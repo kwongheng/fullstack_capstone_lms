@@ -56,6 +56,31 @@ public class BookController {
      return ResponseEntity.ok(bookService.searchByAuthor(author));
  }
  
+ @GetMapping("/search/category")
+ public ResponseEntity<List<Book>> searchByCategory(
+         @RequestParam(required = false) String category) {
+     return ResponseEntity.ok(bookService.searchByCategory(category));
+ }
+
+ @GetMapping("/search/publisher")
+ public ResponseEntity<List<Book>> searchByPublisher(
+         @RequestParam(required = false) String publisher) {
+     return ResponseEntity.ok(bookService.searchByPublisher(publisher));
+ }
+
+ @GetMapping("/search/year")
+ public ResponseEntity<List<Book>> searchByYear(
+         @RequestParam(required = false) Integer year) {
+     return ResponseEntity.ok(bookService.searchByPublicationYear(year));
+ }
+
+ @GetMapping("/search/year-range")
+ public ResponseEntity<List<Book>> searchByYearRange(
+         @RequestParam(required = false) Integer startYear,
+         @RequestParam(required = false) Integer endYear) {
+     return ResponseEntity.ok(bookService.searchByPublicationYearRange(startYear, endYear));
+ }
+ 
  @PostMapping
  public ResponseEntity<Book> addBook(@Valid @RequestBody Book book) {
      Book saved = bookService.save(book);
