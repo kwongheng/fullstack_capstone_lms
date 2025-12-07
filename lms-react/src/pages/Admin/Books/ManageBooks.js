@@ -1,36 +1,76 @@
 // src/pages/Admin/Books/ManageBooks.js
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useBooks } from "../../../hooks/useBooks";
 import { bookApi } from "../../../api/bookApi";
 import Swal from "sweetalert2";
 
 export default function ManageBooks() {
   const { books, isLoading, createBook, updateBook, deleteBook } = useBooks();
+
+  // UI state
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
-  const [modal, setModal] = useState({ open: false, mode: "", book: null });
 
+  // Value used for actual filtering (only after Query click)
+  const [queryValue, setQueryValue] = useState("");
+
+  const [modal, setModal] = useState({ open: false, mode: "", book: null });
   const openModal = (mode, book = null) => setModal({ open: true, mode, book });
   const closeModal = () => setModal({ open: false, mode: "", book: null });
 
-  // Apply search
-  const filteredBooks = books.filter((b) => {
-    if (!searchValue) return true;
-    const value = searchValue.toLowerCase();
-    switch (searchField) {
-      case "isbn":
-        return b.isbn.toLowerCase().includes(value);
-      case "title":
-        return b.title.toLowerCase().includes(value);
-      case "author":
-        return b.author.toLowerCase().includes(value);
-      default:
-        return true;
-    }
-  });
+  // Client-side filtering — only runs when queryValue changes
+  const filteredBooks = useMemo(() => {
+    if (!queryValue.trim()) return books;
+
+    const value = queryValue.trim();
+    const lowerValue = value.toLowerCase();
+
+    return books.filter((book) => {
+      switch (searchField) {
+        case "isbn":
+          return book.isbn.toLowerCase().includes(lowerValue);
+        case "title":
+          return book.title.toLowerCase().includes(lowerValue);
+        case "author":
+          return book.author.toLowerCase().includes(lowerValue);
+        case "category":
+          return book.category?.toLowerCase().includes(lowerValue);
+        case "publisher":
+          return book.publisher?.toLowerCase().includes(lowerValue);
+        case "year":
+          // Support: 2023 → exact year
+          //         2015-2020 → range
+          //         2010- → from 2010 onwards
+          if (value.includes("-")) {
+            const [startStr, endStr] = value.split("-").map(s => s.trim());
+            const start = startStr ? parseInt(startStr, 10) : null;
+            const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
+            const year = book.publicationYear;
+
+            if (!start && !end) return true;
+            if (start && !end) return year >= start; // e.g. "2010-"
+            if (!start && end) return year <= end;   // unlikely, but safe
+            if (start && end) return year >= start && year <= end;
+          } else {
+            const searchYear = parseInt(value, 10);
+            if (!isNaN(searchYear)) {
+              return book.publicationYear === searchYear;
+            }
+          }
+          return false;
+        default:
+          return true;
+      }
+    });
+  }, [books, queryValue, searchField]);
+
+  const handleQuery = () => {
+    setQueryValue(searchValue);
+  };
 
   const handleClear = () => {
     setSearchValue("");
+    setQueryValue("");
     setSearchField("title");
   };
 
@@ -45,31 +85,48 @@ export default function ManageBooks() {
         </button>
       </div>
 
-      {/* Search Panel */}
+      {/* Search Panel — UI preserved, just more options */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
               <label className="form-label fw-bold">Search By</label>
-              <select className="form-select" value={searchField} onChange={(e) => setSearchField(e.target.value)}>
+              <select
+                className="form-select"
+                value={searchField}
+                onChange={(e) => setSearchField(e.target.value)}
+              >
                 <option value="title">Title</option>
                 <option value="isbn">ISBN</option>
                 <option value="author">Author</option>
+                <option value="category">Category</option>
+                <option value="publisher">Publisher</option>
+                <option value="year">Publication Year</option>
               </select>
             </div>
             <div className="col-md-6">
-              <label className="form-label fw-bold">Search Term</label>
+              <label className="form-label fw-bold">
+                {searchField === "year" ? "Year (e.g. 2023 or 2015-2020)" : "Search Term"}
+              </label>
               <input
                 type="text"
                 className="form-control"
-                placeholder={`Enter ${searchField}...`}
+                placeholder={
+                  searchField === "year"
+                    ? "e.g. 2023 or 2015-2020"
+                    : `Enter ${searchField}...`
+                }
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                onKeyPress={(e) => e.key === "Enter" && e.preventDefault()}
               />
+              {searchField === "year" && (
+                <small className="text-muted d-block mt-1">
+                  Use <code>2015-2020</code> for range • <code>2023</code> for exact
+                </small>
+              )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-primary me-2" onClick={() => {}}>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>
                 Query
               </button>
               <button className="btn btn-outline-secondary" onClick={handleClear}>
@@ -80,10 +137,10 @@ export default function ManageBooks() {
         </div>
       </div>
 
-      {/* Books Grid */}
+      {/* Results */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
-          <h4>{searchValue ? "Nothing found" : "No books yet"}</h4>
+          <h4>{queryValue ? "Nothing found" : "No books yet"}</h4>
         </div>
       ) : (
         <div className="row g-4">
@@ -93,18 +150,13 @@ export default function ManageBooks() {
                 <div className="card-body">
                   <h5 className="card-title text-primary">{book.title}</h5>
                   <p className="card-text small">
-                    <strong>ISBN:</strong> {book.isbn}
-                    <br />
-                    <strong>Author:</strong> {book.author}
-                    <br />
-                    <strong>Publisher:</strong> {book.publisher || "—"}
-                    <br />
-                    <strong>Year:</strong> {book.publicationYear}
-                    <br />
-                    <strong>Category:</strong> {book.category || "—"}
-                    <br />
-                    <strong>Copies:</strong> <span className="text-success">{book.availableCopies}</span> /{" "}
-                    {book.totalCopies}
+                    <strong>ISBN:</strong> {book.isbn}<br />
+                    <strong>Author:</strong> {book.author}<br />
+                    <strong>Publisher:</strong> {book.publisher || "—"}<br />
+                    <strong>Year:</strong> {book.publicationYear}<br />
+                    <strong>Category:</strong> {book.category || "—"}<br />
+                    <strong>Copies:</strong>{" "}
+                    <span className="text-success">{book.availableCopies}</span> / {book.totalCopies}
                   </p>
                 </div>
                 <div className="card-footer bg-white d-flex gap-2">
@@ -121,7 +173,7 @@ export default function ManageBooks() {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
+      {/* Modals — unchanged */}
       {modal.open && (modal.mode === "add" || modal.mode === "edit") && (
         <BookForm
           book={modal.book}
@@ -135,7 +187,6 @@ export default function ManageBooks() {
         />
       )}
 
-      {/* Delete Confirmation */}
       {modal.mode === "delete" && modal.book && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered">
@@ -151,9 +202,7 @@ export default function ManageBooks() {
                 <small>ISBN: {modal.book.isbn}</small>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={closeModal}>
-                  Cancel
-                </button>
+                <button className="btn btn-secondary" onClick={closeModal}>Cancel</button>
                 <button
                   className="btn btn-danger"
                   onClick={() => {
