@@ -24,10 +24,10 @@ export default function Login() {
         return;
       }
 
-      // Fetch member data: status + joinDate
       const response = await memberApi.getMemberByUserId(user.id);
       const member = response.data;
 
+      // 1. Suspended → block completely
       if (member?.status === "Suspended") {
         await Swal.fire({
           icon: "error",
@@ -41,26 +41,63 @@ export default function Login() {
         return;
       }
 
-      // Calculate expiration date: 1 year from joinDate
+      // 2. Calculate expiration (1 year from joinDate)
       const joinDate = new Date(member.joinDate);
       const expirationDate = new Date(joinDate);
       expirationDate.setFullYear(joinDate.getFullYear() + 1);
-
       const today = new Date();
       const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
 
-      const isExpired = today > expirationDate;
-      const isAlmostExpired = daysLeft <= 60 && daysLeft > 0;
+      const isExpired = today > expirationDate || member.status === "Expired";
+      const isAlmostExpired = daysLeft <= 60 && daysLeft > 0 && !isExpired;
 
-      if (member.status === "Expired" || isExpired || isAlmostExpired) {
+      // 3. EXPIRED: MUST renew → no escape
+      if (isExpired) {
         const result = await Swal.fire({
           icon: "warning",
-          title: isExpired || member.status === "Expired" 
-            ? "Membership Expired" 
-            : "Membership Expiring Soon",
-          text: isExpired || member.status === "Expired"
-            ? "Your membership has expired. Would you like to renew it now?"
-            : `Your membership expires in ${daysLeft} day(s). Renew now?`,
+          title: "Membership Expired",
+          text: "Your membership has expired. You must renew to continue.",
+          showCancelButton: true,
+          confirmButtonText: "Renew Now",
+          cancelButtonText: "Cancel",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+        });
+
+        if (result.isConfirmed) {
+          try {
+            await memberApi.renewMembership(user.id);
+            await Swal.fire({
+              icon: "success",
+              title: "Renewed!",
+              text: "Your membership has been renewed. Welcome back!",
+              timer: 2000,
+              showConfirmButton: false,
+            });
+            navigate("/dashboard");
+          } catch {
+            await Swal.fire("Error", "Renewal failed. Please try again.", "error");
+            logout();
+          }
+        } else {
+          // User refused to renew → block login
+          await Swal.fire({
+            icon: "error",
+            title: "Login Failed",
+            text: "Your membership has expired. Please renew to continue.",
+            confirmButtonText: "OK",
+          });
+          logout();
+        }
+        return;
+      }
+
+      // 4. ALMOST EXPIRING (≤60 days): optional reminder
+      if (isAlmostExpired) {
+        const result = await Swal.fire({
+          icon: "warning",
+          title: "Membership Expiring Soon",
+          text: `Your membership expires in ${daysLeft} day(s). Renew now?`,
           showCancelButton: true,
           confirmButtonText: "Yes, Renew",
           cancelButtonText: "No, Later",
@@ -72,20 +109,22 @@ export default function Login() {
             await Swal.fire({
               icon: "success",
               title: "Renewed!",
-              text: "Your membership has been renewed for 1 year.",
+              text: "Thank you! Your membership is now active for another year.",
               timer: 2000,
               showConfirmButton: false,
             });
-          } catch (err) {
+          } catch {
             await Swal.fire("Error", "Failed to renew membership.", "error");
           }
         }
+        // Whether renewed or not → allow login
       }
 
+      // 5. All good → go to dashboard
       navigate("/dashboard");
 
     } catch {
-      // Login failed — error already shown by AuthContext
+      // Login failed → error already shown by AuthContext
     }
   };
 
