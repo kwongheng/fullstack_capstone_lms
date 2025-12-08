@@ -8,17 +8,12 @@ import Swal from "sweetalert2";
 
 export default function ManageUsers() {
   const { users, isLoading, createUser, updateUser, deleteUser } = useUsers();
-  const { members = [] } = useMembers();
+  const { members = [], updateMemberStatus } = useMembers();
 
   const [modal, setModal] = useState({ open: false, mode: "", user: null });
 
-  const openModal = (mode, user = null) => {
-    setModal({ open: true, mode, user });
-  };
-
-  const closeModal = () => {
-    setModal({ open: false, mode: "", user: null });
-  };
+  const openModal = (mode, user = null) => setModal({ open: true, mode, user });
+  const closeModal = () => setModal({ open: false, mode: "", user: null });
 
   const handleSubmit = async (formData) => {
     const payload = {
@@ -28,6 +23,7 @@ export default function ManageUsers() {
       address: formData.address?.trim() || null,
       role: formData.role,
       passwordHash: formData.passwordHash,
+      ...(formData.status && formData.role === "Member" && { status: formData.status }),
     };
 
     if (modal.mode === "add") {
@@ -38,11 +34,19 @@ export default function ManageUsers() {
           return;
         }
       } catch (err) {
-        console.warn("Email check failed, proceeding anyway");
+        console.warn("Email check failed");
       }
       createUser(payload);
     } else if (modal.mode === "edit") {
       updateUser({ id: modal.user.id, data: payload });
+
+      // NEW: Update member status if changed
+      if (formData.role === "Member" && formData.status) {
+        const currentMember = members.find((m) => m.userId === modal.user.id);
+        if (currentMember && formData.status !== currentMember.status) {
+          updateMemberStatus({ userId: modal.user.id, status: formData.status });
+        }
+      }
     }
 
     closeModal();
@@ -53,9 +57,7 @@ export default function ManageUsers() {
     closeModal();
   };
 
-  if (isLoading) {
-    return <div className="p-4">Loading users...</div>;
-  }
+  if (isLoading) return <div className="p-4">Loading users...</div>;
 
   return (
     <div className="p-4">
@@ -116,7 +118,7 @@ export default function ManageUsers() {
         </table>
       </div>
 
-      {/* MODAL — FIXED: Add works perfectly */}
+      {/* MODAL */}
       {modal.open && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -132,17 +134,16 @@ export default function ManageUsers() {
               </div>
 
               <div className="modal-body">
-                {/* Add & Edit */}
                 {(modal.mode === "add" || modal.mode === "edit") && (
                   <UserForm
                     user={modal.user}
+                    member={members.find((m) => m.userId === modal.user?.id)}
                     isAdd={modal.mode === "add"}
                     onSubmit={handleSubmit}
                     onCancel={closeModal}
                   />
                 )}
 
-                {/* View — with member details */}
                 {modal.mode === "view" && modal.user && (() => {
                   const member = members.find((m) => m.userId === modal.user.id);
                   const joinDate = member?.joinDate ? parseISO(member.joinDate) : null;
@@ -168,7 +169,7 @@ export default function ManageUsers() {
                           <div className="col-6"><strong>Join Date:</strong> {joinDate ? format(joinDate, "dd MMM yyyy") : "—"}</div>
                           <div className="col-6"><strong>Expires On:</strong> {expiryDate ? format(expiryDate, "dd MMM yyyy") : "—"}</div>
                           <div className="col-12">
-                            <strong>Status:</strong>{" "}
+                            <strong>Status:</strong>
                             <span className={`badge ${status === "Active" ? "bg-success" : status === "Suspended" ? "bg-danger" : "bg-warning text-dark"} px-3 py-2`}>
                               {status}
                             </span>
@@ -179,7 +180,6 @@ export default function ManageUsers() {
                   );
                 })()}
 
-                {/* Delete */}
                 {modal.mode === "delete" && modal.user && (
                   <div className="alert alert-danger">
                     <p className="mb-0">
@@ -207,14 +207,15 @@ export default function ManageUsers() {
   );
 }
 
-// FULLY CLEAN UserForm — no unused vars, no warnings
-function UserForm({ user, isAdd, onSubmit, onCancel }) {
+// UserForm — unchanged
+function UserForm({ user, member, isAdd, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     email: user?.email || "",
     fullName: user?.fullName || "",
     phone: user?.phone || "",
     address: user?.address || "",
     role: user?.role || "Member",
+    status: member?.status || "Active",
     passwordHash: isAdd ? crypto.randomUUID().replace(/-/g, "").slice(0, 25) : user?.passwordHash || "",
   });
 
@@ -245,17 +246,13 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
     onSubmit(form);
   };
 
+  const joinDate = member?.joinDate ? parseISO(member.joinDate) : null;
+
   return (
     <div>
       <div className="mb-3">
         <label className="form-label">Email {isAdd && "*"}</label>
-        <input
-          name="email"
-          className="form-control"
-          value={form.email}
-          onChange={handleChange}
-          disabled={!isAdd}
-        />
+        <input name="email" className="form-control" value={form.email} onChange={handleChange} disabled={!isAdd} />
       </div>
 
       <div className="mb-3">
@@ -282,11 +279,37 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
 
       <div className="mb-3">
         <label className="form-label">Role</label>
-        <select name="role" className="form-select" value={form.role} onChange={handleChange}>
+        <select name="role" className="form-select" value={form.role} onChange={handleChange} disabled={!isAdd}>
           <option value="Member">Member</option>
           <option value="Admin">Admin</option>
         </select>
+        {!isAdd && <small className="text-muted">Role can only be set during creation</small>}
       </div>
+
+      {/* Join Date — read-only */}
+      {!isAdd && form.role === "Member" && (
+        <div className="mb-3">
+          <label className="form-label">Join Date</label>
+          <input
+            className="form-control"
+            value={joinDate ? format(joinDate, "dd MMM yyyy") : "—"}
+            readOnly
+            style={{ backgroundColor: "#f8f9fa" }}
+          />
+        </div>
+      )}
+
+      {/* Status — editable */}
+      {!isAdd && form.role === "Member" && (
+        <div className="mb-3">
+          <label className="form-label">Membership Status</label>
+          <select name="status" className="form-select" value={form.status} onChange={handleChange}>
+            <option value="Active">Active</option>
+            <option value="Suspended">Suspended</option>
+            <option value="Expired">Expired</option>
+          </select>
+        </div>
+      )}
 
       {isAdd && (
         <div className="mb-3">
@@ -301,7 +324,7 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
         </div>
       )}
 
-      <div className="d-flex gap-2">
+      <div className="d-flex gap-2 mt-4">
         <button type="button" className="btn btn-primary" onClick={handleSubmitForm}>
           {isAdd ? "Create User" : "Update User"}
         </button>

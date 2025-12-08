@@ -12,4 +12,8 @@ export const memberApi = {
   // Create new member (Admin only)
   createMember: (userId, memberId) =>
     axiosInstance.post("/members", { userId, memberId }),
+
+  // NEW: Update member status
+  updateMemberStatus: (userId, status) =>
+    axiosInstance.patch(`/members/${userId}/status`, { status }),
 };

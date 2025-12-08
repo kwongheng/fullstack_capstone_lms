@@ -14,20 +14,20 @@ export const useMembers = () => {
   } = useQuery({
     queryKey: ["members"],
     queryFn: () => memberApi.getAllMembers().then((res) => res.data),
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Get single member by user ID (for UserProfile page)
+  // Get single member by user ID
   const useMember = (userId) => {
     return useQuery({
       queryKey: ["member", userId],
       queryFn: () => memberApi.getMemberByUserId(userId).then((res) => res.data),
       enabled: !!userId,
-      staleTime: 1000 * 60 * 10, // 10 minutes
+      staleTime: 1000 * 60 * 10,
     });
   };
 
-  // Create new member (Admin action)
+  // Create new member
   const createMemberMutation = useMutation({
     mutationFn: ({ userId, memberId }) => memberApi.createMember(userId, memberId),
     onSuccess: () => {
@@ -41,17 +41,32 @@ export const useMembers = () => {
     },
   });
 
+  // NEW: Update member status
+  const updateMemberStatusMutation = useMutation({
+    mutationFn: ({ userId, status }) => memberApi.updateMemberStatus(userId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["members"]);
+      queryClient.invalidateQueries(["member",]); // invalidate all single member queries
+      Swal.fire("Success", "Status updated successfully", "success");
+    },
+    onError: (err) => {
+      const msg = err.response?.data || "Failed to update status";
+      Swal.fire("Error", msg, "error");
+    },
+  });
+
   return {
-    // All members
     members,
     isLoadingAll,
     errorAll,
 
-    // Single member hook
     useMember,
 
-    // Mutations
     createMember: createMemberMutation.mutate,
     isCreatingMember: createMemberMutation.isPending,
+
+    // NEW: expose status update
+    updateMemberStatus: updateMemberStatusMutation.mutate,
+    isUpdatingStatus: updateMemberStatusMutation.isPending,
   };
 };
