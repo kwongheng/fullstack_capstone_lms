@@ -7,18 +7,14 @@ import Swal from "sweetalert2";
 export default function ManageBooks() {
   const { books, isLoading, createBook, updateBook, deleteBook } = useBooks();
 
-  // UI state
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
-
-  // Value used for actual filtering (only after Query click)
   const [queryValue, setQueryValue] = useState("");
 
   const [modal, setModal] = useState({ open: false, mode: "", book: null });
   const openModal = (mode, book = null) => setModal({ open: true, mode, book });
   const closeModal = () => setModal({ open: false, mode: "", book: null });
 
-  // Client-side filtering — only runs when queryValue changes
   const filteredBooks = useMemo(() => {
     if (!queryValue.trim()) return books;
 
@@ -38,9 +34,6 @@ export default function ManageBooks() {
         case "publisher":
           return book.publisher?.toLowerCase().includes(lowerValue);
         case "year":
-          // Support: 2023 → exact year
-          //         2015-2020 → range
-          //         2010- → from 2010 onwards
           if (value.includes("-")) {
             const [startStr, endStr] = value.split("-").map(s => s.trim());
             const start = startStr ? parseInt(startStr, 10) : null;
@@ -48,14 +41,12 @@ export default function ManageBooks() {
             const year = book.publicationYear;
 
             if (!start && !end) return true;
-            if (start && !end) return year >= start; // e.g. "2010-"
-            if (!start && end) return year <= end;   // unlikely, but safe
+            if (start && !end) return year >= start;
+            if (!start && end) return year <= end;
             if (start && end) return year >= start && year <= end;
           } else {
             const searchYear = parseInt(value, 10);
-            if (!isNaN(searchYear)) {
-              return book.publicationYear === searchYear;
-            }
+            if (!isNaN(searchYear)) return book.publicationYear === searchYear;
           }
           return false;
         default:
@@ -64,10 +55,7 @@ export default function ManageBooks() {
     });
   }, [books, queryValue, searchField]);
 
-  const handleQuery = () => {
-    setQueryValue(searchValue);
-  };
-
+  const handleQuery = () => setQueryValue(searchValue);
   const handleClear = () => {
     setSearchValue("");
     setQueryValue("");
@@ -85,17 +73,12 @@ export default function ManageBooks() {
         </button>
       </div>
 
-      {/* Search Panel — UI preserved, just more options */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
             <div className="col-md-3">
               <label className="form-label fw-bold">Search By</label>
-              <select
-                className="form-select"
-                value={searchField}
-                onChange={(e) => setSearchField(e.target.value)}
-              >
+              <select className="form-select" value={searchField} onChange={(e) => setSearchField(e.target.value)}>
                 <option value="title">Title</option>
                 <option value="isbn">ISBN</option>
                 <option value="author">Author</option>
@@ -111,11 +94,7 @@ export default function ManageBooks() {
               <input
                 type="text"
                 className="form-control"
-                placeholder={
-                  searchField === "year"
-                    ? "e.g. 2023 or 2015-2020"
-                    : `Enter ${searchField}...`
-                }
+                placeholder={searchField === "year" ? "e.g. 2023 or 2015-2020" : `Enter ${searchField}...`}
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
@@ -126,18 +105,13 @@ export default function ManageBooks() {
               )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-primary me-2" onClick={handleQuery}>
-                Query
-              </button>
-              <button className="btn btn-outline-secondary" onClick={handleClear}>
-                Clear
-              </button>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>Query</button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>Clear</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Results */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
           <h4>{queryValue ? "Nothing found" : "No books yet"}</h4>
@@ -173,7 +147,6 @@ export default function ManageBooks() {
         </div>
       )}
 
-      {/* Modals — unchanged */}
       {modal.open && (modal.mode === "add" || modal.mode === "edit") && (
         <BookForm
           book={modal.book}
@@ -203,13 +176,7 @@ export default function ManageBooks() {
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-                <button
-                  className="btn btn-danger"
-                  onClick={() => {
-                    deleteBook(modal.book.id);
-                    closeModal();
-                  }}
-                >
+                <button className="btn btn-danger" onClick={() => { deleteBook(modal.book.id); closeModal(); }}>
                   Delete Book
                 </button>
               </div>
@@ -221,7 +188,7 @@ export default function ManageBooks() {
   );
 }
 
-// BookForm remains exactly the same as before — perfect
+// Updated BookForm with your exact rules
 function BookForm({ book, isAdd, onSubmit, onCancel }) {
   const currentYear = new Date().getFullYear();
 
@@ -237,34 +204,38 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
 
   const [isbnError, setIsbnError] = useState("");
 
+  // How many copies are currently borrowed
+  const borrowedCopies = isAdd ? 0 : (book.totalCopies - book.availableCopies);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "totalCopies") {
-      const total = parseInt(value, 10) || 0;
-      const currentAvailable = isAdd ? total : (book?.availableCopies || 0);
+      const newTotal = parseInt(value, 10);
 
-      if (total < currentAvailable) {
-        Swal.fire("Invalid", "Total Copies cannot be less than Available Copies", "warning");
+      if (isNaN(newTotal) || newTotal < 0) return;
+
+      // Rule: Cannot reduce below borrowed copies
+      if (!isAdd && newTotal < borrowedCopies) {
+        Swal.fire({
+          icon: "warning",
+          title: "Cannot Reduce Total Copies",
+          text: `There are ${borrowedCopies} book(s) currently on loan. Minimum allowed is ${borrowedCopies}.`,
+          timer: 5000,
+          showConfirmButton: true,
+        });
         return;
       }
 
-      setForm((prev) => ({
-        ...prev,
-        totalCopies: total,
-      }));
+      setForm(prev => ({ ...prev, totalCopies: newTotal }));
       return;
     }
 
-    setForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const checkIsbn = async () => {
     if (!form.isbn) return true;
-
     try {
       const exists = await bookApi.checkIsbnExists(form.isbn, isAdd ? null : book?.id);
       if (exists) {
@@ -280,36 +251,32 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
   };
 
   const handleSubmit = async () => {
-    // Required fields
     if (!form.isbn || !form.title || !form.author || !form.publicationYear || !form.category) {
       Swal.fire("Error", "Please fill all required fields", "error");
       return;
     }
 
-    // Year validation
     const year = parseInt(form.publicationYear, 10);
     if (year < 1901 || year > currentYear) {
       Swal.fire("Error", `Year must be between 1901 and ${currentYear}`, "error");
       return;
     }
 
-    // Total >= Available
-    const total = parseInt(form.totalCopies, 10);
-    const available = isAdd ? total : (book?.availableCopies || 0);
-    if (total < available) {
-      Swal.fire("Error", "Total Copies cannot be less than Available Copies", "error");
+    const newTotal = parseInt(form.totalCopies, 10);
+
+    if (!isAdd && newTotal < borrowedCopies) {
+      Swal.fire("Error", `Cannot reduce Total Copies below ${borrowedCopies} while books are borrowed`, "error");
       return;
     }
 
-    // ISBN uniqueness
     const isbnValid = await checkIsbn();
     if (!isbnValid) return;
 
     const payload = {
       ...form,
       publicationYear: year,
-      totalCopies: total,
-      availableCopies: available,
+      totalCopies: newTotal,
+      availableCopies: isAdd ? newTotal : (newTotal - borrowedCopies),
     };
 
     onSubmit(payload);
@@ -341,32 +308,17 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
 
               <div className="col-12">
                 <label className="form-label">Title *</label>
-                <input
-                  name="title"
-                  className="form-control"
-                  value={form.title}
-                  onChange={handleChange}
-                />
+                <input name="title" className="form-control" value={form.title} onChange={handleChange} />
               </div>
 
               <div className="col-12">
                 <label className="form-label">Author *</label>
-                <input
-                  name="author"
-                  className="form-control"
-                  value={form.author}
-                  onChange={handleChange}
-                />
+                <input name="author" className="form-control" value={form.author} onChange={handleChange} />
               </div>
 
               <div className="col-md-6">
                 <label className="form-label">Publisher</label>
-                <input
-                  name="publisher"
-                  className="form-control"
-                  value={form.publisher}
-                  onChange={handleChange}
-                />
+                <input name="publisher" className="form-control" value={form.publisher} onChange={handleChange} />
               </div>
 
               <div className="col-md-6">
@@ -379,18 +331,12 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   onChange={handleChange}
                   min="1901"
                   max={currentYear}
-                  placeholder="e.g. 2020"
                 />
               </div>
 
               <div className="col-12">
                 <label className="form-label">Category *</label>
-                <input
-                  name="category"
-                  className="form-control"
-                  value={form.category}
-                  onChange={handleChange}
-                />
+                <input name="category" className="form-control" value={form.category} onChange={handleChange} />
               </div>
 
               <div className="col-md-6">
@@ -401,30 +347,39 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   className="form-control"
                   value={form.totalCopies}
                   onChange={handleChange}
-                  min="1"
+                  min="0"
+                  step="1"
                 />
+                {!isAdd && borrowedCopies > 0 && (
+                  <small className="text-warning d-block mt-1">
+                    Minimum allowed: {borrowedCopies} ({borrowedCopies} currently borrowed)
+                  </small>
+                )}
+                {!isAdd && borrowedCopies === 0 && (
+                  <small className="text-success d-block mt-1">
+                    You can reduce to 0 (no books on loan)
+                  </small>
+                )}
               </div>
 
               <div className="col-md-6">
-                <label className="form-label">Available Copies</label>
+                <label className="form-label">Available Copies (After Save)</label>
                 <input
                   type="text"
                   className="form-control"
-                  value={isAdd ? form.totalCopies : book?.availableCopies || 0}
+                  value={isAdd ? form.totalCopies : (form.totalCopies - borrowedCopies)}
                   readOnly
-                  style={{ backgroundColor: "#f8f9fa" }}
+                  style={{ backgroundColor: "#e9ecef" }}
                 />
                 <small className="text-muted">
-                  {isAdd ? "Matches Total Copies" : "Preserved from current state"}
+                  {isAdd ? "Will equal Total Copies" : borrowedCopies > 0 ? `${borrowedCopies} book(s) borrowed` : "No books borrowed"}
                 </small>
               </div>
             </div>
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>
-              Cancel
-            </button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
             <button type="button" className="btn btn-primary" onClick={handleSubmit}>
               {isAdd ? "Add Book" : "Update Book"}
             </button>
