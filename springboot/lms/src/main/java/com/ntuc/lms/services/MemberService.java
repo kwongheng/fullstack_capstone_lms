@@ -40,4 +40,19 @@ public class MemberService {
 	public Member updateMemberStatus(Member member) {
 		return memberRepository.save(member);
 	}
+	
+	public Member renewMembership(Integer userId) {
+	    Member member = getByUserId(userId);
+
+	    // BLOCK renewal only if SUSPENDED
+	    if (member.getStatus() == Member.Status.Suspended) {
+	        throw new IllegalStateException("Cannot renew suspended membership. Contact administrator.");
+	    }
+
+	    // Allow renewal even if expired — this is intentional
+	    member.setJoinDate(LocalDate.now()); // resets expiry to +1 year from today
+	    member.setStatus(Member.Status.Active); // optional: force Active on renewal
+
+	    return memberRepository.save(member);
+	}
 }

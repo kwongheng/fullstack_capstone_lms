@@ -1,6 +1,7 @@
 package com.ntuc.lms.controller;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +54,20 @@ public class MemberController {
 		return ResponseEntity.ok(updated);
 	}
 
+	@PatchMapping("/{userId}/renew")
+	public ResponseEntity<?> renewMembership(@PathVariable Integer userId) {
+	    try {
+	        Member renewed = memberService.renewMembership(userId);
+	        return ResponseEntity.ok(renewed);
+	    } catch (IllegalStateException e) {
+	        return ResponseEntity.badRequest()
+	                .body(Map.of("error", e.getMessage()));
+	    } catch (Exception e) {
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	                .body(Map.of("error", "Failed to renew membership"));
+	    }
+	}
+	
 	record UpdateStatusRequest(String status) {
 	}
 

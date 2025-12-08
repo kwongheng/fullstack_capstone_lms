@@ -41,4 +41,5 @@ public class Member {
     public enum Status {
         Active, Suspended, Expired
     }
+    
 }
