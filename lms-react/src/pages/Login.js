@@ -2,9 +2,11 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
+import { memberApi } from "../api/memberApi";        // ← only new import
+import Swal from "sweetalert2";
 
 export default function Login() {
-  const { login } = useContext(AuthContext);
+  const { login, logout } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -15,9 +17,33 @@ export default function Login() {
 
     try {
       await login(email, password);
-      navigate("/dashboard"); // or "/" → Layout will redirect properly
+
+      const user = JSON.parse(localStorage.getItem("lms_user"));
+      if (!user?.id) {
+        navigate("/dashboard");
+        return;
+      }
+
+      // ← Simple, direct, synchronous-style check (no hooks inside function)
+      const response = await memberApi.getMemberByUserId(user.id);
+      const member = response.data;
+
+      if (member?.status === "Suspended") {
+        await Swal.fire({
+          icon: "error",
+          title: "Access Denied",
+          text: "Your membership is suspended. Please contact the administrator.",
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: "OK",
+        });
+        logout();
+        return;
+      }
+
+      navigate("/dashboard");
     } catch {
-      // Error already shown in AuthContext
+      // Login already failed → error shown by AuthContext
     }
   };
 
