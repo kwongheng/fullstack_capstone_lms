@@ -2,7 +2,7 @@
 import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
-import { memberApi } from "../api/memberApi";        // ← only new import
+import { memberApi } from "../api/memberApi";
 import Swal from "sweetalert2";
 
 export default function Login() {
@@ -24,7 +24,7 @@ export default function Login() {
         return;
       }
 
-      // ← Simple, direct, synchronous-style check (no hooks inside function)
+      // Fetch member data: status + joinDate
       const response = await memberApi.getMemberByUserId(user.id);
       const member = response.data;
 
@@ -41,9 +41,51 @@ export default function Login() {
         return;
       }
 
+      // Calculate expiration date: 1 year from joinDate
+      const joinDate = new Date(member.joinDate);
+      const expirationDate = new Date(joinDate);
+      expirationDate.setFullYear(joinDate.getFullYear() + 1);
+
+      const today = new Date();
+      const daysLeft = Math.ceil((expirationDate - today) / (1000 * 60 * 60 * 24));
+
+      const isExpired = today > expirationDate;
+      const isAlmostExpired = daysLeft <= 60 && daysLeft > 0;
+
+      if (member.status === "Expired" || isExpired || isAlmostExpired) {
+        const result = await Swal.fire({
+          icon: "warning",
+          title: isExpired || member.status === "Expired" 
+            ? "Membership Expired" 
+            : "Membership Expiring Soon",
+          text: isExpired || member.status === "Expired"
+            ? "Your membership has expired. Would you like to renew it now?"
+            : `Your membership expires in ${daysLeft} day(s). Renew now?`,
+          showCancelButton: true,
+          confirmButtonText: "Yes, Renew",
+          cancelButtonText: "No, Later",
+        });
+
+        if (result.isConfirmed) {
+          try {
+            await memberApi.renewMembership(user.id);
+            await Swal.fire({
+              icon: "success",
+              title: "Renewed!",
+              text: "Your membership has been renewed for 1 year.",
+              timer: 2000,
+              showConfirmButton: false,
+            });
+          } catch (err) {
+            await Swal.fire("Error", "Failed to renew membership.", "error");
+          }
+        }
+      }
+
       navigate("/dashboard");
+
     } catch {
-      // Login already failed → error shown by AuthContext
+      // Login failed — error already shown by AuthContext
     }
   };
 
