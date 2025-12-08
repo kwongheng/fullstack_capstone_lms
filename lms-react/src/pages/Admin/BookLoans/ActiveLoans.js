@@ -1,7 +1,6 @@
 // src/pages/Admin/BookLoans/ActiveLoans.js
 import React, { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { borrowApi } from "../../../api/borrowApi";
+import { useBorrows } from "../../../hooks/useBorrows";
 import Swal from "sweetalert2";
 import { format } from "date-fns";
 import {
@@ -15,17 +14,16 @@ import {
 } from "lucide-react";
 
 export default function ActiveLoans() {
-  const queryClient = useQueryClient();
+  const {
+    activeBorrows: activeLoans = [],
+    isLoadingActive: isLoading,
+    returnBook,
+    renewBook,
+  } = useBorrows(); // Admin mode — no userId
 
   const [searchField, setSearchField] = useState("all");
   const [searchValue, setSearchValue] = useState("");
   const [showFinesOnly, setShowFinesOnly] = useState(false);
-
-  const { data: activeLoans = [], isLoading } = useQuery({
-    queryKey: ["admin", "active-loans"],
-    queryFn: () => borrowApi.getActiveBorrows().then(res => res.data),
-    staleTime: 1000 * 30,
-  });
 
   // Group by member
   const loansByMember = activeLoans.reduce((acc, loan) => {
@@ -42,15 +40,15 @@ export default function ActiveLoans() {
     return acc;
   }, {});
 
-  let members = Object.values(loansByMember);
+  const members = Object.values(loansByMember);
 
   // Apply filters
   const filteredMembers = useMemo(() => {
-    let filtered = members;
+    let result = members;
 
     if (searchValue.trim()) {
       const term = searchValue.toLowerCase().trim();
-      filtered = filtered
+      result = result
         .map(member => ({
           ...member,
           loans: member.loans.filter(loan => {
@@ -74,7 +72,7 @@ export default function ActiveLoans() {
     }
 
     if (showFinesOnly) {
-      filtered = filtered
+      result = result
         .map(member => ({
           ...member,
           loans: member.loans.filter(loan => (loan.fineAmount || 0) > 0),
@@ -82,31 +80,8 @@ export default function ActiveLoans() {
         .filter(member => member.loans.length > 0);
     }
 
-    return filtered;
+    return result;
   }, [members, searchField, searchValue, showFinesOnly]);
-
-  const returnMutation = useMutation({
-    mutationFn: borrowApi.returnBook,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["admin", "active-loans"]);
-      Swal.fire("Returned", "Book returned successfully", "success");
-    },
-    onError: (err) => {
-      const msg = err.response?.data || "Cannot return book";
-      Swal.fire("Error", msg, "error");
-    },
-  });
-
-  const renewMutation = useMutation({
-    mutationFn: borrowApi.renewBook,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["admin", "active-loans"]);
-      Swal.fire("Renewed", "Loan extended by 14 days", "success");
-    },
-    onError: (err) => {
-      Swal.fire("Cannot Renew", err.response?.data || "Check conditions", "warning");
-    },
-  });
 
   const handleReturn = (borrowId) => {
     Swal.fire({
@@ -115,18 +90,20 @@ export default function ActiveLoans() {
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Yes, return it",
-    }).then(result => {
+    }).then((result) => {
       if (result.isConfirmed) {
-        returnMutation.mutate(borrowId);
+        returnBook(borrowId);
       }
     });
   };
 
   const handleRenew = (borrowId) => {
-    renewMutation.mutate(borrowId);
+    renewBook(borrowId);
   };
 
-  if (isLoading) return <div className="p-4 text-center">Loading active loans...</div>;
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading active loans...</div>;
+  }
 
   return (
     <div className="p-4">
@@ -191,7 +168,7 @@ export default function ActiveLoans() {
       ) : (
         <>
           <div className="row g-4">
-            {filteredMembers.map(member => {
+            {filteredMembers.map((member) => {
               const totalFine = member.loans.reduce((sum, l) => sum + (l.fineAmount || 0), 0);
 
               return (
@@ -223,7 +200,7 @@ export default function ActiveLoans() {
                             </tr>
                           </thead>
                           <tbody>
-                            {member.loans.map(loan => {
+                            {member.loans.map((loan) => {
                               const isOverdue = new Date(loan.dueDate) < new Date();
                               const canRenew = loan.timesRenew < 2 && !isOverdue && (loan.fineAmount || 0) === 0;
                               const canReturn = (loan.fineAmount || 0) === 0;
@@ -274,7 +251,6 @@ export default function ActiveLoans() {
             })}
           </div>
 
-          {/* Summary Footer */}
           <div className="mt-5 p-4 bg-light border rounded shadow-sm">
             <div className="d-flex justify-content-between align-items-center text-muted small fw-bold">
               <span>

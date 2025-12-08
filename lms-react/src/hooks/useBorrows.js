@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { borrowApi } from "../api/borrowApi";
 import Swal from "sweetalert2";
+import { calculateFineAmount } from "../utils/fineCalculator";
 
 export const useBorrows = (currentUserId = null) => {
   const queryClient = useQueryClient();
@@ -13,12 +14,12 @@ export const useBorrows = (currentUserId = null) => {
   } = useQuery({
     queryKey: ["borrows"],
     queryFn: () => borrowApi.getAllBorrows().then((res) => res.data),
-    staleTime: 1000 * 60, // 1 min
+    staleTime: 1000 * 60,
   });
 
-  // Admin: Only active borrows
+  // Admin: Active borrows — NOW WITH AUTO FINE CALCULATION
   const {
-    data: activeBorrows = [],
+    data: activeBorrowsRaw = [],
     isLoading: isLoadingActive,
   } = useQuery({
     queryKey: ["borrows", "active"],
@@ -26,9 +27,14 @@ export const useBorrows = (currentUserId = null) => {
     staleTime: 1000 * 30,
   });
 
-  // Member: My current active borrows
+  const activeBorrows = activeBorrowsRaw.map(loan => ({
+    ...loan,
+    fineAmount: calculateFineAmount(loan.dueDate),
+  }));
+
+  // Member: My active borrows — already had fine calculation
   const {
-    data: myActiveBorrows = [],
+    data: myActiveBorrowsRaw = [],
     isLoading: isLoadingMyActive,
     refetch: refetchMyActive,
   } = useQuery({
@@ -38,11 +44,15 @@ export const useBorrows = (currentUserId = null) => {
     staleTime: 1000 * 30,
   });
 
-  // Member: My full borrow history summary (lighter payload)
+  const myActiveBorrows = myActiveBorrowsRaw.map(loan => ({
+    ...loan,
+    fineAmount: calculateFineAmount(loan.dueDate),
+  }));
+
+  // Member: Summary — also fine-calculated
   const {
-    data: myBorrowSummary = [],
+    data: myBorrowSummaryRaw = [],
     isLoading: isLoadingSummary,
-    refetch: refetchSummary,
   } = useQuery({
     queryKey: ["borrows", "user", currentUserId, "summary"],
     queryFn: () => borrowApi.getMyBorrowSummary(currentUserId).then((res) => res.data),
@@ -50,6 +60,12 @@ export const useBorrows = (currentUserId = null) => {
     staleTime: 1000 * 60,
   });
 
+  const myBorrowSummary = myBorrowSummaryRaw.map(item => ({
+    ...item,
+    fineAmount: item.dueDate ? calculateFineAmount(item.dueDate) : 0,
+  }));
+
+  // Mutations — unchanged
   const borrowMutation = useMutation({
     mutationFn: ({ memberUserId, bookId }) =>
       borrowApi.borrowBook(memberUserId, bookId),
@@ -62,7 +78,7 @@ export const useBorrows = (currentUserId = null) => {
       Swal.fire("Success!", "Book borrowed successfully", "success");
     },
     onError: (err) => {
-      const msg = err.response?.data || err.message || "Failed to borrow book";
+      const msg = err.response?.data || "Failed to borrow book";
       Swal.fire("Error", msg, "error");
     },
   });
@@ -95,20 +111,6 @@ export const useBorrows = (currentUserId = null) => {
     },
   });
 
-  const calculateFineMutation = useMutation({
-    mutationFn: borrowApi.calculateFine,
-    onSuccess: (data) => {
-      queryClient.setQueryData(
-        ["borrows", "user", currentUserId, "active"],
-        (old) => old?.map((b) => (b.id === data.id ? data : b)) || []
-      );
-      queryClient.setQueryData(
-        ["borrows", "user", currentUserId, "summary"],
-        (old) => old?.map((b) => (b.id === data.id ? { ...b, fineAmount: data.fineAmount } : b)) || []
-      );
-    },
-  });
-
   const payFineMutation = useMutation({
     mutationFn: borrowApi.payFine,
     onSuccess: () => {
@@ -116,34 +118,28 @@ export const useBorrows = (currentUserId = null) => {
       if (currentUserId) {
         queryClient.invalidateQueries(["borrows", "user", currentUserId]);
       }
-      Swal.fire("Paid!", "Fine cleared and book returned", "success");
+      Swal.fire("Paid!", "Fine cleared", "success");
     },
-    onError: () => Swal.fire("Error", "Failed to process payment", "error"),
+    onError: () => Swal.fire("Error", "Payment failed", "error"),
   });
 
   return {
-    // Admin data
     allBorrows,
-    activeBorrows,
+    activeBorrows,           // ← NOW HAS CORRECT fineAmount
     isLoadingAll,
     isLoadingActive,
 
-    // Member data
     myActiveBorrows,
     myBorrowSummary,
     isLoadingMyActive,
     isLoadingSummary,
     refetchMyActive,
-    refetchSummary,
 
-    // Mutations
     borrowBook: borrowMutation.mutate,
     returnBook: returnMutation.mutate,
     renewBook: renewMutation.mutate,
-    calculateFine: calculateFineMutation.mutate,
     payFine: payFineMutation.mutate,
 
-    // Loading states
     isBorrowing: borrowMutation.isPending,
     isReturning: returnMutation.isPending,
     isRenewing: renewMutation.isPending,
