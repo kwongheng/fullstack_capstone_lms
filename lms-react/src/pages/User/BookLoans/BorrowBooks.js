@@ -3,17 +3,31 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useContext } from "react";
 import { AuthContext } from "../../../context/AuthContext";
-import { borrowApi } from "../../../api/borrowApi";
+import { useBorrows } from "../../../hooks/useBorrows";
 import { bookApi } from "../../../api/bookApi";
 import Swal from "sweetalert2";
 import { ShoppingCart, AlertCircle } from "lucide-react";
 
 const MAX_BORROWS = 3;
-const FINE_THRESHOLD = 10.00; // Block borrowing if total fine ≥ $10
+const FINE_THRESHOLD = 10.00;
 
 export default function BorrowBooks() {
   const { user } = useContext(AuthContext);
   const queryClient = useQueryClient();
+
+  const {
+    myActiveBorrows = [],
+    isLoading: loadingBorrows,
+  } = useBorrows(user?.id);
+
+  const {
+    data: books = [],
+    isLoading: loadingBooks,
+  } = useQuery({
+    queryKey: ["books"],
+    queryFn: () => bookApi.getAll().then((res) => res.data),
+    staleTime: 1000 * 60 * 5,
+  });
 
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
@@ -21,39 +35,26 @@ export default function BorrowBooks() {
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
-  // Get active borrows (with fines)
-  const { data: activeBorrows = [], isLoading: loadingActive } = useQuery({
-    queryKey: ["borrows", "user", user?.id, "active"],
-    queryFn: () => borrowApi.getMyActiveBorrows(user.id).then((res) => res.data),
-    enabled: !!user?.id,
-    staleTime: 1000 * 30,
-  });
-
-  // Get all books
-  const { data: books = [], isLoading: loadingBooks } = useQuery({
-    queryKey: ["books"],
-    queryFn: () => bookApi.getAll().then((res) => res.data),
-    staleTime: 1000 * 60 * 5,
-  });
-
-  // Calculate total fine from active loans
-  const totalFine = activeBorrows.reduce((sum, b) => sum + (b.fineAmount || 0), 0);
+  // Used in multiple places — no unused variable
+  const totalFine = myActiveBorrows.reduce((sum, loan) => sum + (loan.fineAmount || 0), 0);
   const hasHighFine = totalFine >= FINE_THRESHOLD;
-
-  const currentLoans = activeBorrows.length;
+  const currentLoans = myActiveBorrows.length;
   const remainingSlots = MAX_BORROWS - currentLoans;
-  const canBorrowMore = currentLoans + cart.length < MAX_BORROWS && !hasHighFine;
 
   const isAlreadyBorrowed = (bookId) =>
-    activeBorrows.some((b) => b.book.id === bookId);
+    myActiveBorrows.some((b) => b.book.id === bookId);
   const isInCart = (bookId) => cart.some((item) => item.bookId === bookId);
 
   const addToCart = (book) => {
     if (hasHighFine) {
-      Swal.fire("Blocked", `You have $${totalFine.toFixed(2)} in fines. Pay fines below $10 to borrow again.`, "warning");
+      Swal.fire(
+        "Borrowing Blocked",
+        `You have $${totalFine.toFixed(2)} in fines. Pay below $10 to borrow again.`,
+        "warning"
+      );
       return;
     }
-    if (!canBorrowMore) {
+    if (currentLoans + cart.length >= MAX_BORROWS) {
       Swal.fire("Limit Reached", `You can only borrow up to ${MAX_BORROWS} books at a time.`, "warning");
       return;
     }
@@ -71,13 +72,13 @@ export default function BorrowBooks() {
 
   const checkoutMutation = useMutation({
     mutationFn: () =>
-      Promise.all(cart.map((item) => borrowApi.borrowBook(user.id, item.bookId))),
+      Promise.all(cart.map((item) => bookApi.borrowBook(user.id, item.bookId))),
     onSuccess: () => {
       queryClient.invalidateQueries(["borrows", "user", user.id]);
       queryClient.invalidateQueries(["books"]);
       setCart([]);
       setShowCart(false);
-      Swal.fire("Success!", `You have successfully borrowed ${cart.length} book(s)!`, "success");
+      Swal.fire("Success!", `You borrowed ${cart.length} book(s)!`, "success");
     },
     onError: (err) => {
       const msg = err.response?.data || "Failed to borrow books";
@@ -87,66 +88,48 @@ export default function BorrowBooks() {
 
   const filteredBooks = useMemo(() => {
     if (!queryValue.trim()) return books;
-
-    const value = queryValue.trim();
-    const lowerValue = value.toLowerCase();
+    const value = queryValue.trim().toLowerCase();
 
     return books.filter((book) => {
       switch (searchField) {
-        case "isbn":
-          return book.isbn.toLowerCase().includes(lowerValue);
-        case "title":
-          return book.title.toLowerCase().includes(lowerValue);
-        case "author":
-          return book.author.toLowerCase().includes(lowerValue);
-        case "category":
-          return book.category?.toLowerCase().includes(lowerValue);
-        case "publisher":
-          return book.publisher?.toLowerCase().includes(lowerValue);
+        case "isbn": return book.isbn.toLowerCase().includes(value);
+        case "title": return book.title.toLowerCase().includes(value);
+        case "author": return book.author.toLowerCase().includes(value);
+        case "category": return book.category?.toLowerCase().includes(value);
+        case "publisher": return book.publisher?.toLowerCase().includes(value);
         case "year":
-          // Support: 2023 → exact year
-          //         2015-2020 → range
-          //         2010- → from 2010 onwards
           if (value.includes("-")) {
             const [startStr, endStr] = value.split("-").map(s => s.trim());
             const start = startStr ? parseInt(startStr, 10) : null;
             const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
             const year = book.publicationYear;
-
             if (!start && !end) return true;
-            if (start && !end) return year >= start; // e.g. "2010-"
-            if (!start && end) return year <= end;   // unlikely, but safe
+            if (start && !end) return year >= start;
+            if (!start && end) return year <= end;
             if (start && end) return year >= start && year <= end;
           } else {
             const searchYear = parseInt(value, 10);
-            if (!isNaN(searchYear)) {
-              return book.publicationYear === searchYear;
-            }
+            if (!isNaN(searchYear)) return book.publicationYear === searchYear;
           }
           return false;
-        default:
-          return true;
+        default: return true;
       }
     });
   }, [books, queryValue, searchField]);
 
-  const handleQuery = () => {
-    setQueryValue(searchValue);
-  };
-
+  const handleQuery = () => setQueryValue(searchValue);
   const handleClear = () => {
     setSearchValue("");
     setQueryValue("");
     setSearchField("title");
   };
 
-  if (loadingBooks || loadingActive) {
+  if (loadingBooks || loadingBorrows) {
     return <div className="p-4 text-center">Loading books and your loans...</div>;
   }
 
   return (
     <div className="p-4">
-      {/* Header */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Borrow Books</h2>
         <button className="btn btn-primary position-relative" onClick={() => setShowCart(true)}>
@@ -160,35 +143,32 @@ export default function BorrowBooks() {
         </button>
       </div>
 
-      {/* HIGH FINE WARNING — BLOCKS BORROWING */}
       {hasHighFine && (
-        <div className="alert alert-danger d-flex align-items-center mb-4" role="alert">
+        <div className="alert alert-danger d-flex align-items-center mb-4">
           <AlertCircle size={24} className="me-3 flex-shrink-0" />
           <div>
-            <strong>Borrowing Blocked:</strong> You have <strong>${totalFine.toFixed(2)}</strong> in outstanding fines.
-            Please pay your fines in <strong>My Current Loans</strong> before borrowing more books.
+            <strong>Borrowing Blocked:</strong> You have <strong>${totalFine.toFixed(2)}</strong> in fines.
+            Pay fines in <strong>My Current Loans</strong> first.
           </div>
         </div>
       )}
 
-      {/* Loan Status Card */}
       <div className="card mb-4 shadow-sm bg-info bg-opacity-10 border-info">
         <div className="card-body">
           <h5 className="card-title text-info mb-2">
-            You currently have <strong>{currentLoans}</strong> book(s) on loan
+            You have <strong>{currentLoans}</strong> active loan(s)
           </h5>
           <p className="card-text mb-0">
-            You can borrow <strong>{hasHighFine ? 0 : remainingSlots}</strong> more (Max {MAX_BORROWS})
+            Can borrow <strong>{hasHighFine ? 0 : remainingSlots}</strong> more (Max {MAX_BORROWS})
             {totalFine > 0 && (
               <span className={hasHighFine ? "text-danger" : "text-warning"}>
-                {" "}• Total Fine: <strong>${totalFine.toFixed(2)}</strong>
+                {" "}• Fine: <strong>${totalFine.toFixed(2)}</strong>
               </span>
             )}
           </p>
         </div>
       </div>
 
-      {/* Search Panel */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
@@ -210,11 +190,7 @@ export default function BorrowBooks() {
               <input
                 type="text"
                 className="form-control"
-                placeholder={
-                  searchField === "year"
-                    ? "e.g. 2023 or 2015-2020"
-                    : `Enter ${searchField}...`
-                }
+                placeholder={searchField === "year" ? "e.g. 2023 or 2015-2020" : `Enter ${searchField}...`}
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
               />
@@ -225,18 +201,13 @@ export default function BorrowBooks() {
               )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-primary me-2" onClick={handleQuery}>
-                Query
-              </button>
-              <button className="btn btn-outline-secondary" onClick={handleClear}>
-                Clear
-              </button>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>Query</button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>Clear</button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Books Grid */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
           <h4>{queryValue ? "No books found" : "No books available"}</h4>
@@ -248,10 +219,13 @@ export default function BorrowBooks() {
               book.availableCopies === 0 ||
               isAlreadyBorrowed(book.id) ||
               isInCart(book.id) ||
-              !canBorrowMore;
+              hasHighFine ||
+              currentLoans + cart.length >= MAX_BORROWS;
 
             const buttonText = hasHighFine
               ? "Fine ≥ $10 — Pay First"
+              : currentLoans + cart.length >= MAX_BORROWS
+              ? "Max Borrows Reached"
               : isAlreadyBorrowed(book.id)
               ? "Already Borrowed"
               : isInCart(book.id)
@@ -299,7 +273,6 @@ export default function BorrowBooks() {
         </div>
       )}
 
-      {/* Cart Modal */}
       {showCart && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -332,9 +305,7 @@ export default function BorrowBooks() {
               </div>
               {cart.length > 0 && (
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={() => setShowCart(false)}>
-                    Close
-                  </button>
+                  <button className="btn btn-secondary" onClick={() => setShowCart(false)}>Close</button>
                   <button
                     className="btn btn-success"
                     onClick={() => checkoutMutation.mutate()}

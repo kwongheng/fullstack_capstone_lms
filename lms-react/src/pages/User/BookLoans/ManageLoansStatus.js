@@ -1,119 +1,50 @@
 // src/pages/member/ManageLoansStatus.js
-import React, { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import React from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
-import { borrowApi } from "../../../api/borrowApi";
+import { useBorrows } from "../../../hooks/useBorrows";
 import Swal from "sweetalert2";
 import { RefreshCw, DollarSign, Undo2, CheckCircle2 } from "lucide-react";
 
 export default function ManageLoansStatus() {
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const [loans, setLoans] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    myActiveBorrows: loans = [],
+    isLoadingMyActive: isLoading,
+    returnBook,
+    renewBook,
+    payFine,
+    isReturning,
+    isRenewing,
+    isPayingFine,
+  } = useBorrows(user?.id);
 
-  // Load active loans + recalculate fines — only once per visit
-  useEffect(() => {
-    const loadAndCalculate = async () => {
-      if (!user?.id) return;
+  // Check if user has any unpaid fine (excluding just returned)
+  const hasAnyUnpaidFine = loans.some(
+    loan => !loan.justReturned && (loan.fineAmount || 0) > 0
+  );
 
-      try {
-        const res = await borrowApi.getMyActiveBorrows(user.id);
-        let activeLoans = res.data;
+  const totalFine = loans
+    .filter(l => !l.justReturned && (l.fineAmount || 0) > 0)
+    .reduce((sum, l) => sum + (l.fineAmount || 0), 0);
 
-        // Recalculate fines
-        for (const loan of activeLoans) {
-          await borrowApi.calculateFine(loan.id).catch(() => {});
-        }
-
-        // Fetch updated data with fresh fines
-        const updatedRes = await borrowApi.getMyActiveBorrows(user.id);
-        const loansWithFines = updatedRes.data;
-
-        setLoans(
-          loansWithFines.map(loan => ({
-            ...loan,
-            justReturned: false,
-            justPaid: false,
-            paidAmount: 0,
-          }))
-        );
-      } catch (err) {
-        console.error("Failed to load loans:", err);
-        Swal.fire("Error", "Could not load your loans", "error");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadAndCalculate();
-  }, [user?.id]);
-
-  // Local state updates
-  const markReturned = (id) => {
-    setLoans(prev =>
-      prev.map(l => (l.id === id ? { ...l, justReturned: true, justPaid: false } : l))
-    );
+  // Local visual state for "just returned/paid"
+  const handleReturn = async (borrowId) => {
+    await returnBook(borrowId);
   };
 
-  const markPaid = (id, amount) => {
-    setLoans(prev =>
-      prev.map(l =>
-        l.id === id ? { ...l, justReturned: true, justPaid: true, paidAmount: amount } : l
-      )
-    );
+  const handlePayFine = async (borrowId) => {
+    await payFine(borrowId);
   };
-
-  // Mutations — fixed to accept borrowId correctly
-  const returnMutation = useMutation({
-    mutationFn: (borrowId) => borrowApi.returnBook(borrowId),
-    onSuccess: (_, borrowId) => {
-      markReturned(borrowId);
-      queryClient.invalidateQueries(["borrows", "user", user.id]);
-      Swal.fire("Returned!", "Book returned successfully", "success");
-    },
-    onError: (err) => {
-      Swal.fire("Error", err.response?.data || "Failed to return book", "error");
-    },
-  });
-
-  const renewMutation = useMutation({
-    mutationFn: (borrowId) => borrowApi.renewBook(borrowId),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["borrows", "user", user.id]);
-      Swal.fire("Renewed!", "Loan extended by 14 days", "success");
-    },
-    onError: (err) => {
-      Swal.fire("Cannot Renew", err.response?.data || "Check conditions", "warning");
-    },
-  });
-
-  const payFineMutation = useMutation({
-    mutationFn: (borrowId) => borrowApi.payFine(borrowId),
-    onSuccess: (_, borrowId) => {
-      const loan = loans.find(l => l.id === borrowId);
-      const fine = loan?.fineAmount || 0;
-      markPaid(borrowId, fine);
-      queryClient.invalidateQueries(["borrows", "user", user.id]);
-      Swal.fire("Paid!", `Fine $${fine.toFixed(2)} cleared`, "success");
-    },
-    onError: (err) => {
-      Swal.fire("Error", err.response?.data || "Payment failed", "error");
-    },
-  });
 
   const payAllMutation = useMutation({
     mutationFn: () =>
       Promise.all(
         loans
           .filter(l => (l.fineAmount || 0) > 0 && !l.justReturned)
-          .map(l => borrowApi.payFine(l.id))
+          .map(l => payFine(l.id))
       ),
     onSuccess: () => {
-      loans
-        .filter(l => (l.fineAmount || 0) > 0 && !l.justReturned)
-        .forEach(l => markPaid(l.id, l.fineAmount || 0));
-      queryClient.invalidateQueries(["borrows", "user", user.id]);
       Swal.fire("All Paid!", "All fines cleared", "success");
     },
   });
@@ -135,13 +66,17 @@ export default function ManageLoansStatus() {
   }
 
   const now = new Date();
-  const totalFine = loans
-    .filter(l => !l.justReturned && (l.fineAmount || 0) > 0)
-    .reduce((sum, l) => sum + (l.fineAmount || 0), 0);
 
   return (
     <div className="p-4">
       <h2 className="mb-4">My Current Loans</h2>
+
+      {hasAnyUnpaidFine && (
+        <div className="alert alert-warning d-flex align-items-center mb-4">
+          <strong>Warning:</strong> You have unpaid fines. 
+          Please pay all fines before renewing any books.
+        </div>
+      )}
 
       <div className="list-group mb-4">
         {loans.map(loan => {
@@ -149,8 +84,9 @@ export default function ManageLoansStatus() {
           const overdue = due < now;
           const hasFine = (loan.fineAmount || 0) > 0;
           const renewals = loan.timesRenew || 0;
-          const canRenew = renewals < 2 && !hasFine && !loan.justReturned;
-          const canReturn = !hasFine && !loan.justReturned;
+
+          const canRenew = !hasAnyUnpaidFine && renewals < 2;
+          const canReturn = !hasFine;
 
           return (
             <div
@@ -171,7 +107,7 @@ export default function ManageLoansStatus() {
                     <span className="badge bg-success fs-6">
                       <CheckCircle2 size={16} className="me-1" />
                       {loan.justPaid
-                        ? `Fine $${loan.paidAmount.toFixed(2)} paid & returned just now`
+                        ? `Fine $${(loan.paidAmount || loan.fineAmount || 0).toFixed(2)} paid & returned`
                         : "Returned just now"}
                     </span>
                   ) : (
@@ -194,23 +130,26 @@ export default function ManageLoansStatus() {
                   <div className="d-flex gap-2 flex-wrap">
                     <button
                       className="btn btn-sm btn-outline-primary"
-                      onClick={() => renewMutation.mutate(loan.id)}
-                      disabled={!canRenew || renewMutation.isPending}
+                      onClick={() => renewBook(loan.id)}
+                      disabled={!canRenew || isRenewing}
+                      title={!canRenew ? "Pay all fines first to renew" : ""}
                     >
                       <RefreshCw size={16} className="me-1" /> Renew
                     </button>
+
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => returnMutation.mutate(loan.id)}
-                      disabled={!canReturn || returnMutation.isPending}
+                      onClick={() => handleReturn(loan.id)}
+                      disabled={!canReturn || isReturning}
                     >
                       <Undo2 size={16} className="me-1" /> Return
                     </button>
+
                     {hasFine && (
                       <button
                         className="btn btn-sm btn-success"
-                        onClick={() => payFineMutation.mutate(loan.id)}
-                        disabled={payFineMutation.isPending}
+                        onClick={() => handlePayFine(loan.id)}
+                        disabled={isPayingFine}
                       >
                         <DollarSign size={16} className="me-1" /> Pay Fine
                       </button>
