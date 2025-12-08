@@ -1,11 +1,15 @@
 // src/pages/Admin/User/ManageUsers.js
 import { useState } from "react";
 import { useUsers } from "../../../hooks/useUsers";
+import { useMembers } from "../../../hooks/useMembers";
 import { userApi } from "../../../api/userApi";
+import { format, addYears, parseISO } from "date-fns";
 import Swal from "sweetalert2";
 
 export default function ManageUsers() {
   const { users, isLoading, createUser, updateUser, deleteUser } = useUsers();
+  const { members = [] } = useMembers();
+
   const [modal, setModal] = useState({ open: false, mode: "", user: null });
 
   const openModal = (mode, user = null) => {
@@ -23,13 +27,12 @@ export default function ManageUsers() {
       phone: formData.phone?.trim() || null,
       address: formData.address?.trim() || null,
       role: formData.role,
-      passwordHash: formData.passwordHash, 
+      passwordHash: formData.passwordHash,
     };
 
     if (modal.mode === "add") {
-      // Simple duplicate email check — using plain fetch (safe, no side effects)
       try {
-        const res = await userApi.checkEmailAvailability(payload.email, modal.mode === "edit" ? modal.user.id : null);
+        const res = await userApi.checkEmailAvailability(payload.email, null);
         if (!res.data.available) {
           Swal.fire("Error", "Email is already registered", "error");
           return;
@@ -37,7 +40,6 @@ export default function ManageUsers() {
       } catch (err) {
         console.warn("Email check failed, proceeding anyway");
       }
-
       createUser(payload);
     } else if (modal.mode === "edit") {
       updateUser({ id: modal.user.id, data: payload });
@@ -72,36 +74,49 @@ export default function ManageUsers() {
               <th>Name</th>
               <th>Role</th>
               <th>Member ID</th>
+              <th>Status</th>
               <th className="text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.email}</td>
-                <td>{u.fullName}</td>
-                <td>
-                  <span className={`badge ${u.role === "Admin" ? "bg-danger" : "bg-primary"}`}>{u.role}</span>
-                </td>
-                <td>{u.role === "Member" ? `MEM-${String(u.id).padStart(4, "0")}` : "—"}</td>
-                <td className="text-center">
-                  <button className="btn btn-info btn-sm me-2" onClick={() => openModal("view", u)}>
-                    View
-                  </button>
-                  <button className="btn btn-warning btn-sm me-2" onClick={() => openModal("edit", u)}>
-                    Edit
-                  </button>
-                  <button className="btn btn-danger btn-sm" onClick={() => openModal("delete", u)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {users.map((u) => {
+              const member = members.find((m) => m.userId === u.id);
+              const status = u.role === "Member" ? (member?.status || "Active") : "—";
+              const badgeColor =
+                status === "Active"
+                  ? "bg-success"
+                  : status === "Suspended"
+                  ? "bg-danger"
+                  : "bg-warning text-dark";
+
+              return (
+                <tr key={u.id}>
+                  <td>{u.email}</td>
+                  <td>{u.fullName || "—"}</td>
+                  <td>
+                    <span className={`badge ${u.role === "Admin" ? "bg-danger" : "bg-primary"}`}>{u.role}</span>
+                  </td>
+                  <td>{u.role === "Member" ? `MEM-${String(u.id).padStart(4, "0")}` : "—"}</td>
+                  <td>
+                    {u.role === "Member" ? (
+                      <span className={`badge ${badgeColor} px-2 py-1`}>{status}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="text-center">
+                    <button className="btn btn-info btn-sm me-2" onClick={() => openModal("view", u)}>View</button>
+                    <button className="btn btn-warning btn-sm me-2" onClick={() => openModal("edit", u)}>Edit</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => openModal("delete", u)}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
-      {/* MODAL */}
+      {/* MODAL — FIXED: Add works perfectly */}
       {modal.open && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -117,6 +132,7 @@ export default function ManageUsers() {
               </div>
 
               <div className="modal-body">
+                {/* Add & Edit */}
                 {(modal.mode === "add" || modal.mode === "edit") && (
                   <UserForm
                     user={modal.user}
@@ -126,34 +142,44 @@ export default function ManageUsers() {
                   />
                 )}
 
-                {modal.mode === "view" && modal.user && (
-                  <div className="row g-3">
-                    <div className="col-6">
-                      <strong>Email:</strong> {modal.user.email}
-                    </div>
-                    <div className="col-6">
-                      <strong>Name:</strong> {modal.user.fullName}
-                    </div>
-                    <div className="col-6">
-                      <strong>Role:</strong>
-                      <span className={`badge ${modal.user.role === "Admin" ? "bg-danger" : "bg-primary"}`}>
-                        {modal.user.role}
-                      </span>
-                    </div>
-                    <div className="col-6">
-                      <strong>Phone:</strong> {modal.user.phone || "—"}
-                    </div>
-                    <div className="col-12">
-                      <strong>Address:</strong> {modal.user.address || "—"}
-                    </div>
-                    {modal.user.role === "Member" && (
-                      <div className="col-12">
-                        <strong>Member ID:</strong> MEM-{String(modal.user.id).padStart(4, "0")}
-                      </div>
-                    )}
-                  </div>
-                )}
+                {/* View — with member details */}
+                {modal.mode === "view" && modal.user && (() => {
+                  const member = members.find((m) => m.userId === modal.user.id);
+                  const joinDate = member?.joinDate ? parseISO(member.joinDate) : null;
+                  const expiryDate = joinDate ? addYears(joinDate, 1) : null;
+                  const status = member?.status || "Active";
 
+                  return (
+                    <div className="row g-3">
+                      <div className="col-6"><strong>Email:</strong> {modal.user.email}</div>
+                      <div className="col-6"><strong>Name:</strong> {modal.user.fullName || "—"}</div>
+                      <div className="col-6">
+                        <strong>Role:</strong>
+                        <span className={`badge ${modal.user.role === "Admin" ? "bg-danger" : "bg-primary"}`}>
+                          {modal.user.role}
+                        </span>
+                      </div>
+                      <div className="col-6"><strong>Phone:</strong> {modal.user.phone || "—"}</div>
+                      <div className="col-12"><strong>Address:</strong> {modal.user.address || "—"}</div>
+
+                      {modal.user.role === "Member" && (
+                        <>
+                          <div className="col-12"><strong>Member ID:</strong> MEM-{String(modal.user.id).padStart(4, "0")}</div>
+                          <div className="col-6"><strong>Join Date:</strong> {joinDate ? format(joinDate, "dd MMM yyyy") : "—"}</div>
+                          <div className="col-6"><strong>Expires On:</strong> {expiryDate ? format(expiryDate, "dd MMM yyyy") : "—"}</div>
+                          <div className="col-12">
+                            <strong>Status:</strong>{" "}
+                            <span className={`badge ${status === "Active" ? "bg-success" : status === "Suspended" ? "bg-danger" : "bg-warning text-dark"} px-3 py-2`}>
+                              {status}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Delete */}
                 {modal.mode === "delete" && modal.user && (
                   <div className="alert alert-danger">
                     <p className="mb-0">
@@ -181,7 +207,7 @@ export default function ManageUsers() {
   );
 }
 
-// Reusable Form Component
+// FULLY CLEAN UserForm — no unused vars, no warnings
 function UserForm({ user, isAdd, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     email: user?.email || "",
@@ -196,9 +222,8 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+    setForm((prev) => ({ ...prev, [name]: value }));
 
-    // Real-time phone validation — exactly like your backend
     if (name === "phone") {
       if (value && (value.startsWith("0") || !/^\d+$/.test(value))) {
         setPhoneError("Phone must contain only digits and cannot start with 0");
@@ -208,7 +233,7 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
     }
   };
 
-  const submit = () => {
+  const handleSubmitForm = () => {
     if (!form.email || !form.fullName) {
       Swal.fire("Error", "Email and Full Name are required", "error");
       return;
@@ -224,7 +249,13 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
     <div>
       <div className="mb-3">
         <label className="form-label">Email {isAdd && "*"}</label>
-        <input name="email" className="form-control" value={form.email} onChange={handleChange} disabled={!isAdd} />
+        <input
+          name="email"
+          className="form-control"
+          value={form.email}
+          onChange={handleChange}
+          disabled={!isAdd}
+        />
       </div>
 
       <div className="mb-3">
@@ -246,7 +277,7 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
 
       <div className="mb-3">
         <label className="form-label">Address</label>
-        <textarea name="address" className="form-control" rows="3" value={form.address} onChange={handleChange} />
+        <textarea name="address" className="form-control" rows={3} value={form.address} onChange={handleChange} />
       </div>
 
       <div className="mb-3">
@@ -260,13 +291,18 @@ function UserForm({ user, isAdd, onSubmit, onCancel }) {
       {isAdd && (
         <div className="mb-3">
           <label className="form-label">Temporary Password (auto-generated)</label>
-          <input className="form-control" value={form.passwordHash} readOnly style={{ backgroundColor: "#f8f9fa" }} />
+          <input
+            className="form-control"
+            value={form.passwordHash}
+            readOnly
+            style={{ backgroundColor: "#f8f9fa" }}
+          />
           <small className="text-muted">User must change this on first login</small>
         </div>
       )}
 
       <div className="d-flex gap-2">
-        <button type="button" className="btn btn-primary" onClick={submit}>
+        <button type="button" className="btn btn-primary" onClick={handleSubmitForm}>
           {isAdd ? "Create User" : "Update User"}
         </button>
         <button type="button" className="btn btn-secondary" onClick={onCancel}>
