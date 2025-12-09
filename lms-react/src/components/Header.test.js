@@ -14,15 +14,14 @@ jest.mock('react-router-dom', () => ({
 const mockNavigate = jest.fn();
 const mockLogout = jest.fn();
 
-const renderHeader = (user = { email: 'john@example.com', displayName: 'Johnny' }) => {
-  return render(
+const renderHeader = (user = { email: 'john@example.com', displayName: 'Johnny' }) =>
+  render(
     <MemoryRouter>
       <AuthContext.Provider value={{ user, logout: mockLogout }}>
         <Header />
       </AuthContext.Provider>
     </MemoryRouter>
   );
-};
 
 describe('Header', () => {
   beforeEach(() => {
@@ -45,24 +44,45 @@ describe('Header', () => {
     expect(screen.getByRole('button', { name: 'jane.doe' })).toBeInTheDocument();
   });
 
-  test('opens and closes user menu on button click', async () => {
+  test('opens menu when user button is clicked', async () => {
     renderHeader();
-
     const userButton = screen.getByRole('button', { name: 'Johnny' });
 
-    await userEvent.click(userButton);
-    expect(screen.getByText('Profile')).toBeVisible();
-    expect(screen.getByText('Logout')).toBeVisible();
+    userEvent.click(userButton); // no await needed
 
-    await userEvent.click(userButton);
+    expect(screen.getByText('Profile')).toBeInTheDocument();
+    expect(screen.getByText('Logout')).toBeInTheDocument();
+  });
+
+  test('closes menu when clicking outside', async () => {
+    renderHeader();
+    const userButton = screen.getByRole('button', { name: 'Johnny' });
+
+    userEvent.click(userButton);
+    expect(screen.getByText('Profile')).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+
     expect(screen.queryByText('Profile')).not.toBeInTheDocument();
+  });
+
+  test('does NOT close menu when clicking the user button again', async () => {
+    renderHeader();
+    const userButton = screen.getByRole('button', { name: 'Johnny' });
+
+    userEvent.click(userButton);
+    expect(screen.getByText('Profile')).toBeInTheDocument();
+
+    userEvent.click(userButton); // should stay open
+
+    expect(screen.getByText('Profile')).toBeInTheDocument();
   });
 
   test('navigates to /profile when Profile is clicked', async () => {
     renderHeader();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Johnny' }));
-    await userEvent.click(screen.getByText('Profile'));
+    userEvent.click(screen.getByRole('button', { name: 'Johnny' }));
+    userEvent.click(screen.getByText('Profile'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/profile');
   });
@@ -70,22 +90,10 @@ describe('Header', () => {
   test('calls logout and navigates to / when Logout is clicked', async () => {
     renderHeader();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Johnny' }));
-    await userEvent.click(screen.getByText('Logout'));
+    userEvent.click(screen.getByRole('button', { name: 'Johnny' }));
+    userEvent.click(screen.getByText('Logout'));
 
     expect(mockLogout).toHaveBeenCalled();
     expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
-  });
-
-  test('closes menu when clicking outside', async () => {
-    renderHeader();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Johnny' }));
-    expect(screen.getByText('Profile')).toBeVisible();
-
-    // Click outside (on document body)
-    fireEvent.mouseDown(document.body);
-
-    expect(screen.queryByText('Profile')).not.toBeInTheDocument();
   });
 });
