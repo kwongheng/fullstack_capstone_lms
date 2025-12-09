@@ -83,7 +83,7 @@ export default function UserProfile() {
   const memberId = user.role === "Member" ? `MEM-${String(user.id).padStart(4, "0")}` : null;
 
   // DEBUG: Remove this in production
-  console.log("Member data from /api/members/12:", member);
+  // console.log("Member data from /api/members/12:", member);
 
   const joinDateRaw = member?.joinDate;
   const joinDate = joinDateRaw ? parseISO(joinDateRaw) : null;
