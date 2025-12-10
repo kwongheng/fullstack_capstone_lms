@@ -3,6 +3,7 @@ import { useContext, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigate, Link } from "react-router-dom";
 import { memberApi } from "../api/memberApi";
+import { borrowApi } from "../api/borrowApi";
 import Swal from "sweetalert2";
 
 export default function Login() {
@@ -24,6 +25,7 @@ export default function Login() {
         return;
       }
 
+      // Check membership status first
       const response = await memberApi.getMemberByUserId(user.id);
       const member = response.data;
 
@@ -51,7 +53,7 @@ export default function Login() {
       const isExpired = today > expirationDate || member.status === "Expired";
       const isAlmostExpired = daysLeft <= 60 && daysLeft > 0 && !isExpired;
 
-      // 3. EXPIRED: MUST renew → no escape
+      // 3. EXPIRED: MUST renew
       if (isExpired) {
         const result = await Swal.fire({
           icon: "warning",
@@ -74,13 +76,12 @@ export default function Login() {
               timer: 2000,
               showConfirmButton: false,
             });
-            navigate("/dashboard");
           } catch {
             await Swal.fire("Error", "Renewal failed. Please try again.", "error");
             logout();
+            return;
           }
         } else {
-          // User refused to renew → block login
           await Swal.fire({
             icon: "error",
             title: "Login Failed",
@@ -88,11 +89,11 @@ export default function Login() {
             confirmButtonText: "OK",
           });
           logout();
+          return;
         }
-        return;
       }
 
-      // 4. ALMOST EXPIRING (≤60 days): optional reminder
+      // 4. ALMOST EXPIRING: optional reminder
       if (isAlmostExpired) {
         const result = await Swal.fire({
           icon: "warning",
@@ -117,12 +118,39 @@ export default function Login() {
             await Swal.fire("Error", "Failed to renew membership.", "error");
           }
         }
-        // Whether renewed or not → allow login
       }
 
-      // 5. All good → go to dashboard
-      navigate("/dashboard");
+      // 5. NEW: Check for overdue books (only if member exists)
+      if (member) {
+        try {
+          const borrowsRes = await borrowApi.getMyActiveBorrows(user.id);
+          const activeBorrows = borrowsRes.data || [];
 
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+
+          const overdueBooks = activeBorrows.filter((loan) => {
+            const due = new Date(loan.dueDate);
+            due.setHours(0, 0, 0, 0);
+            return due < today;
+          });
+
+          if (overdueBooks.length > 0) {
+            await Swal.fire({
+              icon: "warning",
+              title: "Overdue Books",
+              text: `You have ${overdueBooks.length} book(s) overdue. Please return them as soon as possible to avoid fines.`,
+              confirmButtonText: "OK",
+            });
+          }
+        } catch (err) {
+          // Silently fail if borrow check fails — don't block login
+          console.error("Failed to check overdue books:", err);
+        }
+      }
+
+      // 6. All checks passed → go to dashboard
+      navigate("/dashboard");
     } catch {
       // Login failed → error already shown by AuthContext
     }
