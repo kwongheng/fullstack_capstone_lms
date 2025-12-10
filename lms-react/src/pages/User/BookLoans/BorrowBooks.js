@@ -1,10 +1,10 @@
 // src/pages/User/BookLoans/BorrowBooks.js
 import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useContext } from "react";
 import { AuthContext } from "../../../context/AuthContext";
 import { useBorrows } from "../../../hooks/useBorrows";
-import { borrowApi } from "../../../api/borrowApi";   // ← ONLY CHANGE: correct API
+import { useBooks } from "../../../hooks/useBooks";           // ← now using the proper hook
 import Swal from "sweetalert2";
 import { ShoppingCart, AlertCircle } from "lucide-react";
 
@@ -20,14 +20,13 @@ export default function BorrowBooks() {
     isLoading: loadingBorrows,
   } = useBorrows(user?.id);
 
+  // Use the official useBooks hook (no direct API calls)
   const {
-    data: books = [],
+    books = [],
     isLoading: loadingBooks,
-  } = useQuery({
-    queryKey: ["books"],
-    queryFn: () => borrowApi.getAllBooks().then((res) => res.data), // or keep bookApi.getAll() if you prefer
-    staleTime: 1000 * 60 * 5,
-  });
+    isError,
+    error,
+  } = useBooks();                                          // ← gets all books exactly like Admin pages
 
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
@@ -35,7 +34,6 @@ export default function BorrowBooks() {
   const [cart, setCart] = useState([]);
   const [showCart, setShowCart] = useState(false);
 
-  // Used in multiple places — no unused variable
   const totalFine = myActiveBorrows.reduce((sum, loan) => sum + (loan.fineAmount || 0), 0);
   const hasHighFine = totalFine >= FINE_THRESHOLD;
   const currentLoans = myActiveBorrows.length;
@@ -70,15 +68,19 @@ export default function BorrowBooks() {
     setCart((prev) => prev.filter((item) => item.bookId !== bookId));
   };
 
-  // ← ONLY FIX: use correct borrowApi
+  // Borrowing still uses borrowApi (only place that needs it)
   const checkoutMutation = useMutation({
     mutationFn: () =>
       Promise.all(
-        cart.map((item) => borrowApi.borrowBook(user.id, item.bookId))
+        cart.map((item) =>
+          import("../../../api/borrowApi").then((module) =>
+            module.borrowApi.borrowBook(user.id, item.bookId)
+          )
+        )
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries(["borrows", "user", user.id]);
-      queryClient.invalidateQueries(["books"]);
+      queryClient.invalidateQueries({ queryKey: ["borrows", "user", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["books"] });
       setCart([]);
       setShowCart(false);
       Swal.fire("Success!", `You borrowed ${cart.length} book(s)!`, "success");
@@ -95,27 +97,31 @@ export default function BorrowBooks() {
 
     return books.filter((book) => {
       switch (searchField) {
-        case "isbn": return book.isbn.toLowerCase().includes(value);
-        case "title": return book.title.toLowerCase().includes(value);
-        case "author": return book.author.toLowerCase().includes(value);
-        case "category": return book.category?.toLowerCase().includes(value);
-        case "publisher": return book.publisher?.toLowerCase().includes(value);
+        case "isbn":
+          return book.isbn?.toLowerCase().includes(value);
+        case "title":
+          return book.title?.toLowerCase().includes(value);
+        case "author":
+          return book.author?.toLowerCase().includes(value);
+        case "category":
+          return book.category?.toLowerCase().includes(value);
+        case "publisher":
+          return book.publisher?.toLowerCase().includes(value);
         case "year":
           if (value.includes("-")) {
-            const [startStr, endStr] = value.split("-").map(s => s.trim());
+            const [startStr, endStr] = value.split("-").map((s) => s.trim());
             const start = startStr ? parseInt(startStr, 10) : null;
-            const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
+            const end = endStr ? parseInt(endStr, 10) : null;
             const year = book.publicationYear;
-            if (!start && !end) return true;
-            if (start && !end) return year >= start;
-            if (!start && end) return year <= end;
             if (start && end) return year >= start && year <= end;
-          } else {
-            const searchYear = parseInt(value, 10);
-            if (!isNaN(searchYear)) return book.publicationYear === searchYear;
+            if (start) return year >= start;
+            if (end) return year <= end;
+            return true;
           }
-          return false;
-        default: return true;
+          const searchYear = parseInt(value, 10);
+          return !isNaN(searchYear) && book.publicationYear === searchYear;
+        default:
+          return true;
       }
     });
   }, [books, queryValue, searchField]);
@@ -146,7 +152,6 @@ export default function BorrowBooks() {
         </button>
       </div>
 
-      {/* ORIGINAL STATUS BAR — preserved exactly */}
       <div className="row mb-4">
         <div className="col-md-6">
           <div className="alert alert-info">
@@ -172,7 +177,6 @@ export default function BorrowBooks() {
         </div>
       )}
 
-      {/* Search bar — exactly as original */}
       <div className="card mb-4 shadow-sm bg-info bg-opacity-10 border-info">
         <div className="card-body">
           <div className="row g-3 align-items-end">
@@ -210,10 +214,10 @@ export default function BorrowBooks() {
         </div>
       </div>
 
-      {/* Book grid & cart modal — 100% identical to your original */}
       {filteredBooks.length === 0 ? (
         <div className="text-center py-5 text-muted">
-          <h4>{queryValue ? "No books found" : "No books available"}</h4>
+          <h4>{queryValue ? "No books found matching your search" : "No books available at the moment"}</h4>
+          {isError && <p className="text-danger mt-3">Error loading books: {error?.message || "Unknown error"}</p>}
         </div>
       ) : (
         <div className="row g-4">
@@ -276,7 +280,6 @@ export default function BorrowBooks() {
         </div>
       )}
 
-      {/* Cart Modal — exactly as original */}
       {showCart && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
