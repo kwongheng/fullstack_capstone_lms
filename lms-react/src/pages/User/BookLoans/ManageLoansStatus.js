@@ -1,6 +1,6 @@
 // src/pages/member/ManageLoansStatus.js
-import React from "react";
-import { useMutation } from "@tanstack/react-query";
+import React, { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../../context/AuthContext";
 import { useBorrows } from "../../../hooks/useBorrows";
 import Swal from "sweetalert2";
@@ -8,6 +8,8 @@ import { RefreshCw, DollarSign, Undo2, CheckCircle2 } from "lucide-react";
 
 export default function ManageLoansStatus() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
   const {
     myActiveBorrows: loans = [],
     isLoadingMyActive: isLoading,
@@ -19,41 +21,59 @@ export default function ManageLoansStatus() {
     isPayingFine,
   } = useBorrows(user?.id);
 
-  // Check if user has any unpaid fine (excluding just returned)
-  const hasAnyUnpaidFine = loans.some(
-    loan => !loan.justReturned && (loan.fineAmount || 0) > 0
-  );
+  // State to hold completed (returned/paid) loans for display until navigation/refresh
+  const [completedLoans, setCompletedLoans] = useState([]);
 
-  const totalFine = loans
-    .filter(l => !l.justReturned && (l.fineAmount || 0) > 0)
-    .reduce((sum, l) => sum + (l.fineAmount || 0), 0);
-
-  // Local visual state for "just returned/paid"
-  const handleReturn = async (borrowId) => {
-    await returnBook(borrowId);
+  const addCompletedLoan = (loan, actionType) => {
+    const completed = { ...loan, justAction: actionType };
+    setCompletedLoans(prev => [...prev, completed]);
   };
 
-  const handlePayFine = async (borrowId) => {
-    await payFine(borrowId);
+  const handleReturn = async (loan) => {
+    addCompletedLoan(loan, "returned");
+    await returnBook(loan.id);
+  };
+
+  const handlePayFine = async (loan) => {
+    addCompletedLoan(loan, "paidAndReturned");
+    await payFine(loan.id);
+    await returnBook(loan.id); // Same effect as Return
   };
 
   const payAllMutation = useMutation({
-    mutationFn: () =>
-      Promise.all(
-        loans
-          .filter(l => (l.fineAmount || 0) > 0 && !l.justReturned)
-          .map(l => payFine(l.id))
-      ),
+    mutationFn: async () => {
+      const loansWithFine = loans.filter(l => (l.fineAmount || 0) > 0);
+      for (const loan of loansWithFine) {
+        addCompletedLoan(loan, "paidAndReturned");
+        await payFine(loan.id);
+        await returnBook(loan.id);
+      }
+    },
     onSuccess: () => {
-      Swal.fire("All Paid!", "All fines cleared", "success");
+      queryClient.invalidateQueries(["borrows", "user", user?.id]);
+      Swal.fire("Success", "All fines paid and books returned!", "success");
+    },
+    onError: () => {
+      Swal.fire("Error", "Some actions failed.", "error");
     },
   });
+
+  const hasAnyUnpaidFine = loans.some(
+    loan => (loan.fineAmount || 0) > 0
+  );
+
+  const totalFine = loans
+    .filter(l => (l.fineAmount || 0) > 0)
+    .reduce((sum, l) => sum + (l.fineAmount || 0), 0);
+
+  // Display list: active loans + completed ones
+  const displayLoans = [...loans, ...completedLoans];
 
   if (isLoading) {
     return <div className="p-4 text-center">Loading your loans...</div>;
   }
 
-  if (loans.length === 0) {
+  if (displayLoans.length === 0) {
     return (
       <div className="p-4">
         <h2 className="mb-4">My Current Loans</h2>
@@ -74,16 +94,17 @@ export default function ManageLoansStatus() {
       {hasAnyUnpaidFine && (
         <div className="alert alert-warning d-flex align-items-center mb-4">
           <strong>Warning:</strong> You have unpaid fines. 
-          Please pay all fines before renewing any books.
+          Please pay all fines before renewing any books. Paying a fine will also return the book.
         </div>
       )}
 
       <div className="list-group mb-4">
-        {loans.map(loan => {
+        {displayLoans.map(loan => {
           const due = new Date(loan.dueDate);
           const overdue = due < now;
           const hasFine = (loan.fineAmount || 0) > 0;
           const renewals = loan.timesRenew || 0;
+          const action = loan.justAction;
 
           const canRenew = !hasAnyUnpaidFine && renewals < 2;
           const canReturn = !hasFine;
@@ -92,7 +113,7 @@ export default function ManageLoansStatus() {
             <div
               key={loan.id}
               className={`list-group-item p-4 border-start-4 ${
-                loan.justReturned
+                action
                   ? "border-success bg-success bg-opacity-10"
                   : overdue
                   ? "border-danger bg-danger bg-opacity-10"
@@ -103,11 +124,11 @@ export default function ManageLoansStatus() {
                 <div>
                   <h5 className="text-primary mb-2">{loan.book.title}</h5>
 
-                  {loan.justReturned ? (
+                  {action ? (
                     <span className="badge bg-success fs-6">
                       <CheckCircle2 size={16} className="me-1" />
-                      {loan.justPaid
-                        ? `Fine $${(loan.paidAmount || loan.fineAmount || 0).toFixed(2)} paid & returned`
+                      {action === "paidAndReturned"
+                        ? `Fine $${(loan.fineAmount || 0).toFixed(2)} paid & returned`
                         : "Returned just now"}
                     </span>
                   ) : (
@@ -126,7 +147,7 @@ export default function ManageLoansStatus() {
                   )}
                 </div>
 
-                {!loan.justReturned && (
+                {!action && (
                   <div className="d-flex gap-2 flex-wrap">
                     <button
                       className="btn btn-sm btn-outline-primary"
@@ -139,7 +160,7 @@ export default function ManageLoansStatus() {
 
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => handleReturn(loan.id)}
+                      onClick={() => handleReturn(loan)}
                       disabled={!canReturn || isReturning}
                     >
                       <Undo2 size={16} className="me-1" /> Return
@@ -148,10 +169,10 @@ export default function ManageLoansStatus() {
                     {hasFine && (
                       <button
                         className="btn btn-sm btn-success"
-                        onClick={() => handlePayFine(loan.id)}
+                        onClick={() => handlePayFine(loan)}
                         disabled={isPayingFine}
                       >
-                        <DollarSign size={16} className="me-1" /> Pay Fine
+                        <DollarSign size={16} className="me-1" /> Pay Fine & Return
                       </button>
                     )}
                   </div>
@@ -174,7 +195,7 @@ export default function ManageLoansStatus() {
               disabled={payAllMutation.isPending}
             >
               <DollarSign size={20} className="me-2" />
-              {payAllMutation.isPending ? "Processing..." : "Pay All Fines"}
+              {payAllMutation.isPending ? "Processing..." : "Pay All Fines & Return"}
             </button>
           </div>
         </div>
