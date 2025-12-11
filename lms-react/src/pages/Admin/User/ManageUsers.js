@@ -1,5 +1,5 @@
 // src/pages/Admin/User/ManageUsers.js
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useUsers } from "../../../hooks/useUsers";
 import { useMembers } from "../../../hooks/useMembers";
 import { userApi } from "../../../api/userApi";
@@ -10,10 +10,47 @@ export default function ManageUsers() {
   const { users, isLoading, createUser, updateUser, deleteUser } = useUsers();
   const { members = [], updateMemberStatus } = useMembers();
 
+  // Search states
+  const [searchField, setSearchField] = useState("email");
+  const [searchValue, setSearchValue] = useState("");
+  const [queryValue, setQueryValue] = useState("");
+
   const [modal, setModal] = useState({ open: false, mode: "", user: null });
 
   const openModal = (mode, user = null) => setModal({ open: true, mode, user });
   const closeModal = () => setModal({ open: false, mode: "", user: null });
+
+  // Client-side filtering
+  const filteredUsers = useMemo(() => {
+    if (!queryValue.trim()) return users;
+
+    const value = queryValue.trim().toLowerCase();
+
+    return users.filter((user) => {
+      const memberId = user.role === "Member" ? `MEM-${String(user.id).padStart(4, "0")}` : "";
+
+      switch (searchField) {
+        case "email":
+          return user.email.toLowerCase().includes(value);
+        case "fullName":
+          return user.fullName?.toLowerCase().includes(value) ?? false;
+        case "memberId":
+          return user.role === "Member" && memberId.toLowerCase().includes(value);
+        default:
+          return true;
+      }
+    });
+  }, [users, queryValue, searchField]);
+
+  const handleQuery = () => {
+    setQueryValue(searchValue);
+  };
+
+  const handleClear = () => {
+    setSearchValue("");
+    setQueryValue("");
+    setSearchField("email");
+  };
 
   const handleSubmit = async (formData) => {
     const payload = {
@@ -40,7 +77,6 @@ export default function ManageUsers() {
     } else if (modal.mode === "edit") {
       updateUser({ id: modal.user.id, data: payload });
 
-      // NEW: Update member status if changed
       if (formData.role === "Member" && formData.status) {
         const currentMember = members.find((m) => m.userId === modal.user.id);
         if (currentMember && formData.status !== currentMember.status) {
@@ -68,57 +104,116 @@ export default function ManageUsers() {
         </button>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-striped table-hover">
-          <thead className="table-dark">
-            <tr>
-              <th>Email</th>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Member ID</th>
-              <th>Status</th>
-              <th className="text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((u) => {
-              const member = members.find((m) => m.userId === u.id);
-              const status = u.role === "Member" ? (member?.status || "Active") : "—";
-              const badgeColor =
-                status === "Active"
-                  ? "bg-success"
-                  : status === "Suspended"
-                  ? "bg-danger"
-                  : "bg-warning text-dark";
-
-              return (
-                <tr key={u.id}>
-                  <td>{u.email}</td>
-                  <td>{u.fullName || "—"}</td>
-                  <td>
-                    <span className={`badge ${u.role === "Admin" ? "bg-danger" : "bg-primary"}`}>{u.role}</span>
-                  </td>
-                  <td>{u.role === "Member" ? `MEM-${String(u.id).padStart(4, "0")}` : "—"}</td>
-                  <td>
-                    {u.role === "Member" ? (
-                      <span className={`badge ${badgeColor} px-2 py-1`}>{status}</span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="text-center">
-                    <button className="btn btn-info btn-sm me-2" onClick={() => openModal("view", u)}>View</button>
-                    <button className="btn btn-warning btn-sm me-2" onClick={() => openModal("edit", u)}>Edit</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => openModal("delete", u)}>Delete</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Search Card */}
+      <div className="card mb-4 shadow-sm">
+        <div className="card-body">
+          <div className="row g-3 align-items-end">
+            <div className="col-md-3">
+              <label className="form-label fw-bold">Search By</label>
+              <select
+                className="form-select"
+                value={searchField}
+                onChange={(e) => setSearchField(e.target.value)}
+              >
+                <option value="email">Email</option>
+                <option value="fullName">Full Name</option>
+                <option value="memberId">Member ID</option>
+              </select>
+            </div>
+            <div className="col-md-6">
+              <label className="form-label fw-bold">Search Term</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder={
+                  searchField === "memberId"
+                    ? "e.g. MEM-0001"
+                    : searchField === "email"
+                    ? "Enter email..."
+                    : "Enter full name..."
+                }
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+              />
+            </div>
+            <div className="col-md-3">
+              <button className="btn btn-primary me-2" onClick={handleQuery}>
+                Query
+              </button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* MODAL */}
+      {/* Results */}
+      {filteredUsers.length === 0 ? (
+        <div className="text-center py-5 text-muted">
+          <h4>{queryValue ? "No users found" : "No users yet"}</h4>
+        </div>
+      ) : (
+        <div className="table-responsive">
+          <table className="table table-striped table-hover">
+            <thead className="table-dark">
+              <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Member ID</th>
+                <th>Status</th>
+                <th className="text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredUsers.map((u) => {
+                const member = members.find((m) => m.userId === u.id);
+                const status = u.role === "Member" ? (member?.status || "Active") : "—";
+                const badgeColor =
+                  status === "Active"
+                    ? "bg-success"
+                    : status === "Suspended"
+                      ? "bg-danger"
+                      : "bg-warning text-dark";
+
+                return (
+                  <tr key={u.id}>
+                    <td>{u.email}</td>
+                    <td>{u.fullName || "—"}</td>
+                    <td>
+                      <span className={`badge ${u.role === "Admin" ? "bg-danger" : "bg-primary"}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td>{u.role === "Member" ? `MEM-${String(u.id).padStart(4, "0")}` : "—"}</td>
+                    <td>
+                      {u.role === "Member" ? (
+                        <span className={`badge ${badgeColor} px-2 py-1`}>{status}</span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="text-center">
+                      <button className="btn btn-info btn-sm me-2" onClick={() => openModal("view", u)}>
+                        View
+                      </button>
+                      <button className="btn btn-warning btn-sm me-2" onClick={() => openModal("edit", u)}>
+                        Edit
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => openModal("delete", u)}>
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Modal */}
       {modal.open && (
         <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
           <div className="modal-dialog modal-dialog-centered modal-lg">
@@ -207,7 +302,6 @@ export default function ManageUsers() {
   );
 }
 
-// UserForm — unchanged
 function UserForm({ user, member, isAdd, onSubmit, onCancel }) {
   const [form, setForm] = useState({
     email: user?.email || "",
@@ -286,7 +380,6 @@ function UserForm({ user, member, isAdd, onSubmit, onCancel }) {
         {!isAdd && <small className="text-muted">Role can only be set during creation</small>}
       </div>
 
-      {/* Join Date — read-only */}
       {!isAdd && form.role === "Member" && (
         <div className="mb-3">
           <label className="form-label">Join Date</label>
@@ -299,7 +392,6 @@ function UserForm({ user, member, isAdd, onSubmit, onCancel }) {
         </div>
       )}
 
-      {/* Status — editable */}
       {!isAdd && form.role === "Member" && (
         <div className="mb-3">
           <label className="form-label">Membership Status</label>
