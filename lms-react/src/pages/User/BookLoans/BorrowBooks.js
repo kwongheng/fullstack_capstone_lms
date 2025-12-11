@@ -7,6 +7,7 @@ import { useBorrows } from "../../../hooks/useBorrows";
 import { useBooks } from "../../../hooks/useBooks";           // ← now using the proper hook
 import Swal from "sweetalert2";
 import { ShoppingCart, AlertCircle } from "lucide-react";
+import { borrowApi } from "../../../api/borrowApi";
 
 const MAX_BORROWS = 3;
 const FINE_THRESHOLD = 10.00;
@@ -72,11 +73,7 @@ export default function BorrowBooks() {
   const checkoutMutation = useMutation({
     mutationFn: () =>
       Promise.all(
-        cart.map((item) =>
-          import("../../../api/borrowApi").then((module) =>
-            module.borrowApi.borrowBook(user.id, item.bookId)
-          )
-        )
+       cart.map((item) => borrowApi.borrowBook(user.id, item.bookId))
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["borrows", "user", user?.id] });
