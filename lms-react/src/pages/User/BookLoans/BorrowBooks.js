@@ -151,7 +151,7 @@ export default function BorrowBooks() {
 
       <div className="row mb-4">
         <div className="col-md-6">
-          <div className="alert alert-info">
+          <div className="alert alert-info" data-testid="borrow-info-alert">
             <strong>Currently Borrowed:</strong> {currentLoans} / {MAX_BORROWS} books
             {remainingSlots > 0 ? ` — You can borrow ${remainingSlots} more` : " (limit reached)"}
           </div>
