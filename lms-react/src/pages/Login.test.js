@@ -5,12 +5,19 @@ import { MemoryRouter } from 'react-router-dom';
 import Login from './Login';
 import { AuthContext } from '../context/AuthContext';
 import * as memberApi from '../api/memberApi';
+import * as borrowApi from '../api/borrowApi';
 import Swal from 'sweetalert2';
 
 jest.mock('../api/memberApi', () => ({
   memberApi: {
     getMemberByUserId: jest.fn(),
     renewMembership: jest.fn(),
+  },
+}));
+
+jest.mock('../api/borrowApi', () => ({
+  borrowApi: {
+    getMyActiveBorrows: jest.fn(),
   },
 }));
 
@@ -35,6 +42,8 @@ beforeEach(() => {
     localStorage.setItem('lms_user', JSON.stringify({ id: 'user-123' + Date.now() })); // unique id per test
     return Promise.resolve();
   });
+
+  require('../api/borrowApi').borrowApi.getMyActiveBorrows.mockResolvedValue({ data: [] });
 });
 
 describe('Login Page', () => {
