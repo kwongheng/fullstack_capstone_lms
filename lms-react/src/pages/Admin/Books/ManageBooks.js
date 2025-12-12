@@ -1,7 +1,6 @@
 // src/pages/Admin/Books/ManageBooks.js
 import { useState, useMemo } from "react";
 import { useBooks } from "../../../hooks/useBooks";
-import { bookApi } from "../../../api/bookApi";
 import Swal from "sweetalert2";
 
 export default function ManageBooks() {
@@ -73,6 +72,7 @@ export default function ManageBooks() {
         </button>
       </div>
 
+      {/* Search UI unchanged */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
@@ -147,6 +147,7 @@ export default function ManageBooks() {
         </div>
       )}
 
+      {/* Modals */}
       {modal.open && (modal.mode === "add" || modal.mode === "edit") && (
         <BookForm
           book={modal.book}
@@ -170,8 +171,7 @@ export default function ManageBooks() {
               </div>
               <div className="modal-body">
                 <p>Permanently delete this book?</p>
-                <strong>{modal.book.title}</strong>
-                <br />
+                <strong>{modal.book.title}</strong><br />
                 <small>ISBN: {modal.book.isbn}</small>
               </div>
               <div className="modal-footer">
@@ -188,9 +188,12 @@ export default function ManageBooks() {
   );
 }
 
-// Updated BookForm with your exact rules
+// ──────────────────────────────────────────────────────────────────────
+// Updated BookForm with full ISBN validation + clean payload
+// ──────────────────────────────────────────────────────────────────────
 function BookForm({ book, isAdd, onSubmit, onCancel }) {
   const currentYear = new Date().getFullYear();
+  const borrowedCopies = isAdd ? 0 : (book.totalCopies - book.availableCopies);
 
   const [form, setForm] = useState({
     isbn: book?.isbn || "",
@@ -202,82 +205,80 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
     totalCopies: book?.totalCopies || 1,
   });
 
-  const [isbnError, setIsbnError] = useState("");
+  const [errors, setErrors] = useState({});
 
-  // How many copies are currently borrowed
-  const borrowedCopies = isAdd ? 0 : (book.totalCopies - book.availableCopies);
+  // ISBN validation (accepts hyphens/spaces, but stores only digits)
+  const validateIsbn = (value) => {
+    if (!value.trim()) return "ISBN is required";
+    const cleaned = value.replace(/[- ]/g, "");
+    if (cleaned.length === 10 && /^[0-9]{9}[0-9X]$/i.test(cleaned)) return "";
+    if (cleaned.length === 13 && /^[0-9]{13}$/.test(cleaned)) return "";
+    return "ISBN must be 10 or 13 digits (hyphens allowed)";
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    if (name === "totalCopies") {
-      const newTotal = parseInt(value, 10);
-
-      if (isNaN(newTotal) || newTotal < 0) return;
-
-      // Rule: Cannot reduce below borrowed copies
-      if (!isAdd && newTotal < borrowedCopies) {
+    if (name === "isbn") {
+      setForm(prev => ({ ...prev, isbn: value }));
+      setErrors(prev => ({ ...prev, isbn: validateIsbn(value) }));
+    }
+    else if (name === "totalCopies") {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num < 0) return;
+      if (!isAdd && num < borrowedCopies) {
         Swal.fire({
           icon: "warning",
           title: "Cannot Reduce Total Copies",
-          text: `There are ${borrowedCopies} book(s) currently on loan. Minimum allowed is ${borrowedCopies}.`,
-          timer: 5000,
-          showConfirmButton: true,
+          text: `There are ${borrowedCopies} book(s) currently borrowed. Minimum is ${borrowedCopies}.`,
         });
         return;
       }
-
-      setForm(prev => ({ ...prev, totalCopies: newTotal }));
-      return;
+      setForm(prev => ({ ...prev, totalCopies: num }));
     }
-
-    setForm(prev => ({ ...prev, [name]: value }));
-  };
-
-  const checkIsbn = async () => {
-    if (!form.isbn) return true;
-    try {
-      const exists = await bookApi.checkIsbnExists(form.isbn, isAdd ? null : book?.id);
-      if (exists) {
-        setIsbnError("ISBN already exists");
-        return false;
-      }
-      setIsbnError("");
-      return true;
-    } catch {
-      setIsbnError("Could not verify ISBN");
-      return false;
+    else {
+      setForm(prev => ({ ...prev, [name]: value }));
     }
   };
 
   const handleSubmit = async () => {
+    // Required fields
     if (!form.isbn || !form.title || !form.author || !form.publicationYear || !form.category) {
       Swal.fire("Error", "Please fill all required fields", "error");
       return;
     }
 
+    // Year range
     const year = parseInt(form.publicationYear, 10);
     if (year < 1901 || year > currentYear) {
       Swal.fire("Error", `Year must be between 1901 and ${currentYear}`, "error");
       return;
     }
 
-    const newTotal = parseInt(form.totalCopies, 10);
-
-    if (!isAdd && newTotal < borrowedCopies) {
-      Swal.fire("Error", `Cannot reduce Total Copies below ${borrowedCopies} while books are borrowed`, "error");
+    // ISBN format
+    const isbnError = validateIsbn(form.isbn);
+    if (isbnError) {
+      setErrors(prev => ({ ...prev, isbn: isbnError }));
+      Swal.fire("Invalid ISBN", isbnError, "error");
       return;
     }
 
-    const isbnValid = await checkIsbn();
-    if (!isbnValid) return;
+    const newTotal = parseInt(form.totalCopies, 10);
 
+    // Build clean payload – never send availableCopies on add
     const payload = {
-      ...form,
+      isbn: form.isbn.replace(/[- ]/g, ""),   // send only digits
+      title: form.title.trim(),
+      author: form.author.trim(),
+      publisher: form.publisher.trim() || null,
       publicationYear: year,
+      category: form.category.trim(),
       totalCopies: newTotal,
-      availableCopies: isAdd ? newTotal : (newTotal - borrowedCopies),
     };
+
+    if (!isAdd) {
+      payload.availableCopies = newTotal - borrowedCopies;
+    }
 
     onSubmit(payload);
   };
@@ -297,13 +298,17 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                 <label className="form-label">ISBN *</label>
                 <input
                   name="isbn"
-                  className={`form-control ${isbnError ? "is-invalid" : ""}`}
+                  className={`form-control ${errors.isbn ? "is-invalid" : ""}`}
                   value={form.isbn}
                   onChange={handleChange}
                   disabled={!isAdd}
-                  placeholder="e.g. 978-3-16-148410-0"
+                  placeholder="e.g. 978-3-16-148410-0 or 0131103628"
                 />
-                {isbnError && <div className="invalid-feedback">{isbnError}</div>}
+                {errors.isbn ? (
+                  <div className="invalid-feedback">{errors.isbn}</div>
+                ) : (
+                  <small className="text-muted">ISBN-10 or ISBN-13 • hyphens allowed</small>
+                )}
               </div>
 
               <div className="col-12">
@@ -347,17 +352,12 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   className="form-control"
                   value={form.totalCopies}
                   onChange={handleChange}
-                  min="0"
+                  min={borrowedCopies}
                   step="1"
                 />
                 {!isAdd && borrowedCopies > 0 && (
                   <small className="text-warning d-block mt-1">
-                    Minimum allowed: {borrowedCopies} ({borrowedCopies} currently borrowed)
-                  </small>
-                )}
-                {!isAdd && borrowedCopies === 0 && (
-                  <small className="text-success d-block mt-1">
-                    You can reduce to 0 (no books on loan)
+                    Minimum: {borrowedCopies} ({borrowedCopies} currently borrowed)
                   </small>
                 )}
               </div>
@@ -371,9 +371,6 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   readOnly
                   style={{ backgroundColor: "#e9ecef" }}
                 />
-                <small className="text-muted">
-                  {isAdd ? "Will equal Total Copies" : borrowedCopies > 0 ? `${borrowedCopies} book(s) borrowed` : "No books borrowed"}
-                </small>
               </div>
             </div>
           </div>
