@@ -8,26 +8,20 @@ export const useBorrows = (currentUserId = null) => {
   const queryClient = useQueryClient();
 
   // Admin: All borrows
-  const {
-    data: allBorrows = [],
-    isLoading: isLoadingAll,
-  } = useQuery({
+  const { data: allBorrows = [], isLoading: isLoadingAll } = useQuery({
     queryKey: ["borrows"],
     queryFn: () => borrowApi.getAllBorrows().then((res) => res.data),
     staleTime: 1000 * 60,
   });
 
   // Admin: Active borrows — NOW WITH AUTO FINE CALCULATION
-  const {
-    data: activeBorrowsRaw = [],
-    isLoading: isLoadingActive,
-  } = useQuery({
+  const { data: activeBorrowsRaw = [], isLoading: isLoadingActive } = useQuery({
     queryKey: ["borrows", "active"],
     queryFn: () => borrowApi.getActiveBorrows().then((res) => res.data),
     staleTime: 1000 * 30,
   });
 
-  const activeBorrows = activeBorrowsRaw.map(loan => ({
+  const activeBorrows = activeBorrowsRaw.map((loan) => ({
     ...loan,
     fineAmount: calculateFineAmount(loan.dueDate),
   }));
@@ -44,31 +38,27 @@ export const useBorrows = (currentUserId = null) => {
     staleTime: 1000 * 30,
   });
 
-  const myActiveBorrows = myActiveBorrowsRaw.map(loan => ({
+  const myActiveBorrows = myActiveBorrowsRaw.map((loan) => ({
     ...loan,
     fineAmount: calculateFineAmount(loan.dueDate),
   }));
 
   // Member: Summary — also fine-calculated
-  const {
-    data: myBorrowSummaryRaw = [],
-    isLoading: isLoadingSummary,
-  } = useQuery({
+  const { data: myBorrowSummaryRaw = [], isLoading: isLoadingSummary } = useQuery({
     queryKey: ["borrows", "user", currentUserId, "summary"],
     queryFn: () => borrowApi.getMyBorrowSummary(currentUserId).then((res) => res.data),
     enabled: !!currentUserId,
     staleTime: 1000 * 60,
   });
 
-  const myBorrowSummary = myBorrowSummaryRaw.map(item => ({
+  const myBorrowSummary = myBorrowSummaryRaw.map((item) => ({
     ...item,
     fineAmount: item.dueDate ? calculateFineAmount(item.dueDate) : 0,
   }));
 
   // Mutations — unchanged
   const borrowMutation = useMutation({
-    mutationFn: ({ memberUserId, bookId }) =>
-      borrowApi.borrowBook(memberUserId, bookId),
+    mutationFn: ({ memberUserId, bookId }) => borrowApi.borrowBook(memberUserId, bookId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["borrows"] });
       queryClient.invalidateQueries({ queryKey: ["books"] });
@@ -123,9 +113,26 @@ export const useBorrows = (currentUserId = null) => {
     onError: () => Swal.fire("Error", "Payment failed", "error"),
   });
 
+  // Super User Edit
+  const updateLoanDatesMutation = useMutation({
+    mutationFn: ({ borrowId, dates }) => borrowApi.updateLoanDates(borrowId, dates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["borrows"] });
+      queryClient.invalidateQueries({ queryKey: ["borrows", "active"] });
+      if (currentUserId) {
+        queryClient.invalidateQueries(["borrows", "user", currentUserId]);
+      }
+      Swal.fire("Updated!", "Loan dates updated & fine recalculated", "success");
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || "Failed to update dates";
+      Swal.fire("Error", msg, "error");
+    },
+  });
+
   return {
     allBorrows,
-    activeBorrows,           // ← NOW HAS CORRECT fineAmount
+    activeBorrows, // ← NOW HAS CORRECT fineAmount
     isLoadingAll,
     isLoadingActive,
 
@@ -139,6 +146,9 @@ export const useBorrows = (currentUserId = null) => {
     returnBook: returnMutation.mutate,
     renewBook: renewMutation.mutate,
     payFine: payFineMutation.mutate,
+
+    updateLoanDates: updateLoanDatesMutation.mutate,
+    isUpdatingDates: updateLoanDatesMutation.isPending,
 
     isBorrowing: borrowMutation.isPending,
     isReturning: returnMutation.isPending,

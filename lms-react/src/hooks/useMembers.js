@@ -69,6 +69,20 @@ export const useMembers = () => {
     },
   });
 
+  // Super User Edit
+  const updateJoinDateMutation = useMutation({
+    mutationFn: ({ userId, dateString }) => memberApi.updateJoinDate(userId, dateString),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      queryClient.invalidateQueries({ queryKey: ["member"] });
+      Swal.fire("Updated!", "Join date changed successfully", "success");
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || "Failed to update join date";
+      Swal.fire("Error", msg, "error");
+    },
+  });
+
   return {
     // Data
     members,
@@ -87,5 +101,8 @@ export const useMembers = () => {
 
     renewMembership: renewMembershipMutation.mutate,
     isRenewing: renewMembershipMutation.isPending,
+
+    updateJoinDate: updateJoinDateMutation.mutate,
+    isUpdatingJoinDate: updateJoinDateMutation.isPending,
   };
 };

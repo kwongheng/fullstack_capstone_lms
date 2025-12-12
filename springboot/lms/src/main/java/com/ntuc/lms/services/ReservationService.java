@@ -1,5 +1,6 @@
 package com.ntuc.lms.services;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -60,5 +61,26 @@ public class ReservationService {
     @Transactional
     public void cancelReservation(Integer id) {
         reservationRepository.deleteById(id);
+    }
+    
+    @Transactional
+    public Reservation updateReservationDate(Integer reservationId, LocalDate newReservationDate) {
+        Reservation reservation = reservationRepository.findById(reservationId)
+            .orElseThrow(() -> new RuntimeException("Reservation not found"));
+
+        LocalDate today = LocalDate.now();
+
+        // Super User rule: reservation date can be today or past only
+        if (newReservationDate.isAfter(today)) {
+            throw new IllegalArgumentException("Reservation date cannot be in the future");
+        }
+
+        // Update reservation date
+        reservation.setReservationDate(newReservationDate.atStartOfDay());
+
+        // Automatically recalculate expiry date: +14 days from new reservation date
+        reservation.setExpiryDate(newReservationDate.plusDays(14).atStartOfDay());
+
+        return reservationRepository.save(reservation);
     }
 }

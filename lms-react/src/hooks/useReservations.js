@@ -17,8 +17,7 @@ export const useReservations = () => {
   });
 
   const reserveMutation = useMutation({
-    mutationFn: ({ memberUserId, bookId }) =>
-      reservationApi.reserveBook(memberUserId, bookId),
+    mutationFn: ({ memberUserId, bookId }) => reservationApi.reserveBook(memberUserId, bookId),
     onSuccess: () => {
       queryClient.invalidateQueries(["reservations"]);
       queryClient.invalidateQueries(["books"]);
@@ -49,6 +48,19 @@ export const useReservations = () => {
     },
   });
 
+  const updateReservationDateMutation = useMutation({
+    mutationFn: ({ reservationId, data }) => reservationApi.updateReservationDate(reservationId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reservations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "reservations", "all"] });
+      Swal.fire("Updated!", "Reservation date updated — expiry recalculated (+14 days)", "success");
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || "Failed to update";
+      Swal.fire("Error", msg, "error");
+    },
+  });
+
   return {
     allReservations,
     activeReservations,
@@ -61,5 +73,8 @@ export const useReservations = () => {
 
     isReserving: reserveMutation.isPending,
     isCancelling: cancelMutation.isPending,
+
+    updateReservationDate: updateReservationDateMutation.mutate,
+    isUpdatingReservationDate: updateReservationDateMutation.isPending,
   };
 };

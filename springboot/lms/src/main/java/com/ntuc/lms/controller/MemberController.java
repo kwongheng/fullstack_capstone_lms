@@ -1,5 +1,6 @@
 package com.ntuc.lms.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -76,6 +77,17 @@ public class MemberController {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
 	}
 
+	@PatchMapping("/{userId}/join-date")
+	public ResponseEntity<Member> updateJoinDate(
+	    @PathVariable Integer userId,
+	    @RequestBody Map<String, String> body) {
+
+	    LocalDate newDate = LocalDate.parse(body.get("joinDate"));
+	    Member updated = memberService.updateJoinDate(userId, newDate);
+	    
+	    return ResponseEntity.ok(updated);
+	}
+	
 }
 
 //Simple DTO to avoid exposing User entity directly

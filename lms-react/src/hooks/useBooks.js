@@ -53,10 +53,14 @@ export const useBooks = (searchParams = {}) => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: bookApi.delete,
+    mutationFn: (id) => bookApi.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["books"] });
       Swal.fire("Deleted!", "Book removed", "success");
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || "Cannot delete book — it may have borrow history";
+      Swal.fire("Error", msg, "error");
     },
   });
 

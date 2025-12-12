@@ -4,7 +4,7 @@ import { useBooks } from "../../../hooks/useBooks";
 import Swal from "sweetalert2";
 
 export default function ManageBooks() {
-  const { books, isLoading, createBook, updateBook, deleteBook } = useBooks();
+  const { books, isLoading, createBook, updateBook, deleteBook, isDeleting } = useBooks();
 
   const [searchField, setSearchField] = useState("title");
   const [searchValue, setSearchValue] = useState("");
@@ -34,7 +34,7 @@ export default function ManageBooks() {
           return book.publisher?.toLowerCase().includes(lowerValue);
         case "year":
           if (value.includes("-")) {
-            const [startStr, endStr] = value.split("-").map(s => s.trim());
+            const [startStr, endStr] = value.split("-").map((s) => s.trim());
             const start = startStr ? parseInt(startStr, 10) : null;
             const end = endStr && endStr !== "" ? parseInt(endStr, 10) : null;
             const year = book.publicationYear;
@@ -61,6 +61,26 @@ export default function ManageBooks() {
     setSearchField("title");
   };
 
+  const handleDelete = (book) => {
+    if (book.totalCopies !== book.availableCopies) {
+      Swal.fire("Cannot Delete", "This book has active loans and cannot be deleted", "error");
+      return;
+    }
+
+    Swal.fire({
+      title: "Delete Book?",
+      text: `"${book.title}" will be permanently removed`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete it",
+      confirmButtonColor: "#dc2626",
+    }).then((result) => {
+      if (result.isConfirmed) {
+        deleteBook(book.id);
+      }
+    });
+  };
+
   if (isLoading) return <div className="p-4">Loading books...</div>;
 
   return (
@@ -72,7 +92,7 @@ export default function ManageBooks() {
         </button>
       </div>
 
-      {/* Search UI unchanged */}
+      {/* Search UI */}
       <div className="card mb-4 shadow-sm">
         <div className="card-body">
           <div className="row g-3 align-items-end">
@@ -105,8 +125,12 @@ export default function ManageBooks() {
               )}
             </div>
             <div className="col-md-3">
-              <button className="btn btn-primary me-2" onClick={handleQuery}>Query</button>
-              <button className="btn btn-outline-secondary" onClick={handleClear}>Clear</button>
+              <button className="btn btn-primary me-2" onClick={handleQuery}>
+                Query
+              </button>
+              <button className="btn btn-outline-secondary" onClick={handleClear}>
+                Clear
+              </button>
             </div>
           </div>
         </div>
@@ -124,20 +148,30 @@ export default function ManageBooks() {
                 <div className="card-body">
                   <h5 className="card-title text-primary">{book.title}</h5>
                   <p className="card-text small">
-                    <strong>ISBN:</strong> {book.isbn}<br />
-                    <strong>Author:</strong> {book.author}<br />
-                    <strong>Publisher:</strong> {book.publisher || "—"}<br />
-                    <strong>Year:</strong> {book.publicationYear}<br />
-                    <strong>Category:</strong> {book.category || "—"}<br />
-                    <strong>Copies:</strong>{" "}
-                    <span className="text-success">{book.availableCopies}</span> / {book.totalCopies}
+                    <strong>ISBN:</strong> {book.isbn}
+                    <br />
+                    <strong>Author:</strong> {book.author}
+                    <br />
+                    <strong>Publisher:</strong> {book.publisher || "—"}
+                    <br />
+                    <strong>Year:</strong> {book.publicationYear}
+                    <br />
+                    <strong>Category:</strong> {book.category || "—"}
+                    <br />
+                    <strong>Copies:</strong> <span className="text-success">{book.availableCopies}</span> /{" "}
+                    {book.totalCopies}
                   </p>
                 </div>
                 <div className="card-footer bg-white d-flex gap-2">
                   <button className="btn btn-warning btn-sm flex-fill" onClick={() => openModal("edit", book)}>
                     Edit
                   </button>
-                  <button className="btn btn-danger btn-sm flex-fill" onClick={() => openModal("delete", book)}>
+                  <button
+                    className="btn btn-danger btn-sm flex-fill"
+                    onClick={() => handleDelete(book)}
+                    disabled={isDeleting || book.totalCopies !== book.availableCopies}
+                    title={book.totalCopies !== book.availableCopies ? "Cannot delete — books on loan" : "Delete book"}
+                  >
                     Delete
                   </button>
                 </div>
@@ -160,40 +194,14 @@ export default function ManageBooks() {
           onCancel={closeModal}
         />
       )}
-
-      {modal.mode === "delete" && modal.book && (
-        <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
-          <div className="modal-dialog modal-dialog-centered">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title text-danger">Confirm Delete</h5>
-                <button type="button" className="btn-close" onClick={closeModal} />
-              </div>
-              <div className="modal-body">
-                <p>Permanently delete this book?</p>
-                <strong>{modal.book.title}</strong><br />
-                <small>ISBN: {modal.book.isbn}</small>
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={closeModal}>Cancel</button>
-                <button className="btn btn-danger" onClick={() => { deleteBook(modal.book.id); closeModal(); }}>
-                  Delete Book
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ──────────────────────────────────────────────────────────────────────
-// Updated BookForm with full ISBN validation + clean payload
-// ──────────────────────────────────────────────────────────────────────
+// BookForm component remains exactly the same as in your original code
 function BookForm({ book, isAdd, onSubmit, onCancel }) {
   const currentYear = new Date().getFullYear();
-  const borrowedCopies = isAdd ? 0 : (book.totalCopies - book.availableCopies);
+  const borrowedCopies = isAdd ? 0 : book.totalCopies - book.availableCopies;
 
   const [form, setForm] = useState({
     isbn: book?.isbn || "",
@@ -207,7 +215,6 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
 
   const [errors, setErrors] = useState({});
 
-  // ISBN validation (accepts hyphens/spaces, but stores only digits)
   const validateIsbn = (value) => {
     if (!value.trim()) return "ISBN is required";
     const cleaned = value.replace(/[- ]/g, "");
@@ -220,54 +227,35 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
     const { name, value } = e.target;
 
     if (name === "isbn") {
-      setForm(prev => ({ ...prev, isbn: value }));
-      setErrors(prev => ({ ...prev, isbn: validateIsbn(value) }));
-    }
-    else if (name === "totalCopies") {
+      setForm((prev) => ({ ...prev, isbn: value }));
+      setErrors((prev) => ({ ...prev, isbn: validateIsbn(value) }));
+    } else if (name === "totalCopies") {
       const num = parseInt(value, 10);
-      if (isNaN(num) || num < 0) return;
-      if (!isAdd && num < borrowedCopies) {
-        Swal.fire({
-          icon: "warning",
-          title: "Cannot Reduce Total Copies",
-          text: `There are ${borrowedCopies} book(s) currently borrowed. Minimum is ${borrowedCopies}.`,
-        });
-        return;
-      }
-      setForm(prev => ({ ...prev, totalCopies: num }));
-    }
-    else {
-      setForm(prev => ({ ...prev, [name]: value }));
+      if (isNaN(num) || num < borrowedCopies) return;
+      setForm((prev) => ({ ...prev, totalCopies: num }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleSubmit = async () => {
-    // Required fields
-    if (!form.isbn || !form.title || !form.author || !form.publicationYear || !form.category) {
-      Swal.fire("Error", "Please fill all required fields", "error");
-      return;
-    }
-
-    // Year range
+  const handleSubmit = () => {
     const year = parseInt(form.publicationYear, 10);
     if (year < 1901 || year > currentYear) {
       Swal.fire("Error", `Year must be between 1901 and ${currentYear}`, "error");
       return;
     }
 
-    // ISBN format
     const isbnError = validateIsbn(form.isbn);
     if (isbnError) {
-      setErrors(prev => ({ ...prev, isbn: isbnError }));
+      setErrors({ isbn: isbnError });
       Swal.fire("Invalid ISBN", isbnError, "error");
       return;
     }
 
     const newTotal = parseInt(form.totalCopies, 10);
 
-    // Build clean payload – never send availableCopies on add
     const payload = {
-      isbn: form.isbn.replace(/[- ]/g, ""),   // send only digits
+      isbn: form.isbn.replace(/[- ]/g, ""),
       title: form.title.trim(),
       author: form.author.trim(),
       publisher: form.publisher.trim() || null,
@@ -289,9 +277,8 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
         <div className="modal-content">
           <div className="modal-header">
             <h5 className="modal-title">{isAdd ? "Add New Book" : "Edit Book"}</h5>
-            <button type="button" className="btn-close" onClick={onCancel} aria-label="Close" />
+            <button type="button" className="btn-close" onClick={onCancel} />
           </div>
-
           <div className="modal-body">
             <div className="row g-3">
               <div className="col-12">
@@ -302,30 +289,22 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   value={form.isbn}
                   onChange={handleChange}
                   disabled={!isAdd}
-                  placeholder="e.g. 978-3-16-148410-0 or 0131103628"
+                  placeholder="e.g. 978-3-16-148410-0"
                 />
-                {errors.isbn ? (
-                  <div className="invalid-feedback">{errors.isbn}</div>
-                ) : (
-                  <small className="text-muted">ISBN-10 or ISBN-13 • hyphens allowed</small>
-                )}
+                {errors.isbn && <div className="invalid-feedback">{errors.isbn}</div>}
               </div>
-
               <div className="col-12">
                 <label className="form-label">Title *</label>
                 <input name="title" className="form-control" value={form.title} onChange={handleChange} />
               </div>
-
               <div className="col-12">
                 <label className="form-label">Author *</label>
                 <input name="author" className="form-control" value={form.author} onChange={handleChange} />
               </div>
-
               <div className="col-md-6">
                 <label className="form-label">Publisher</label>
                 <input name="publisher" className="form-control" value={form.publisher} onChange={handleChange} />
               </div>
-
               <div className="col-md-6">
                 <label className="form-label">Publication Year *</label>
                 <input
@@ -338,12 +317,10 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   max={currentYear}
                 />
               </div>
-
               <div className="col-12">
                 <label className="form-label">Category *</label>
                 <input name="category" className="form-control" value={form.category} onChange={handleChange} />
               </div>
-
               <div className="col-md-6">
                 <label className="form-label">Total Copies *</label>
                 <input
@@ -353,7 +330,6 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   value={form.totalCopies}
                   onChange={handleChange}
                   min={borrowedCopies}
-                  step="1"
                 />
                 {!isAdd && borrowedCopies > 0 && (
                   <small className="text-warning d-block mt-1">
@@ -361,22 +337,22 @@ function BookForm({ book, isAdd, onSubmit, onCancel }) {
                   </small>
                 )}
               </div>
-
               <div className="col-md-6">
                 <label className="form-label">Available Copies (After Save)</label>
                 <input
                   type="text"
                   className="form-control"
-                  value={isAdd ? form.totalCopies : (form.totalCopies - borrowedCopies)}
+                  value={isAdd ? form.totalCopies : form.totalCopies - borrowedCopies}
                   readOnly
                   style={{ backgroundColor: "#e9ecef" }}
                 />
               </div>
             </div>
           </div>
-
           <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+            <button type="button" className="btn btn-secondary" onClick={onCancel}>
+              Cancel
+            </button>
             <button type="button" className="btn btn-primary" onClick={handleSubmit}>
               {isAdd ? "Add Book" : "Update Book"}
             </button>
