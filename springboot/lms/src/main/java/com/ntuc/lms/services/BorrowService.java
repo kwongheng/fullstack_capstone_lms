@@ -156,4 +156,33 @@ public class BorrowService {
 	            .map(BorrowSummary::new)  
 	            .toList();
 	}
+	
+	@Transactional
+	public Borrow updateLoanDates(Integer borrowId, LocalDateTime borrowDate, LocalDateTime dueDate) {
+	    Borrow borrow = borrowRepository.findById(borrowId)
+	        .orElseThrow(() -> new RuntimeException("Borrow record not found"));
+
+	    // Super User override — no business rules applied
+	    borrow.setBorrowDate(borrowDate);
+	    borrow.setDueDate(dueDate);
+
+	    // Recalculate fine based on new due date
+	    if (borrow.getIsReturned()) {
+	        // If already returned, fine is frozen — do nothing
+	    } else {
+	        LocalDateTime now = LocalDateTime.now();
+	        if (dueDate == null || now.isBefore(dueDate)) {
+	            borrow.setFineAmount(BigDecimal.ZERO);
+	        } else {
+	            long overdueDays = java.time.Duration.between(dueDate, now).toDays();
+	            BigDecimal calculated = BigDecimal.valueOf(overdueDays)
+	                .multiply(BigDecimal.valueOf(0.5))
+	                .min(BigDecimal.valueOf(20.00))
+	                .setScale(2, java.math.RoundingMode.HALF_UP);
+	            borrow.setFineAmount(calculated);
+	        }
+	    }
+
+	    return borrowRepository.save(borrow);
+	}
 }

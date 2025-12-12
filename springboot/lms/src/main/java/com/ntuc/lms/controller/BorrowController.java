@@ -1,5 +1,6 @@
 package com.ntuc.lms.controller;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -76,6 +77,25 @@ public class BorrowController {
 	    return ResponseEntity.ok(updated);
 	}
 
+	// Add inside BorrowController.java
+	@PatchMapping("/{id}/super-edit-dates")
+	public ResponseEntity<Borrow> superEditLoanDates(
+	    @PathVariable Integer id,
+	    @RequestBody UpdateLoanDatesRequest request) {
+
+	    Borrow updated = borrowService.updateLoanDates(
+	        id,
+	        request.borrowDate(),
+	        request.dueDate()
+	    );
+	    return ResponseEntity.ok(updated);
+	}
+
+	// Request DTO
+	record UpdateLoanDatesRequest(
+	    LocalDateTime borrowDate,
+	    LocalDateTime dueDate
+	) {}
 }
 
 record BorrowRequest(Integer memberUserId, Integer bookId) {

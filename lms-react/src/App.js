@@ -22,6 +22,10 @@ import ViewLoansHistory from "./pages/User/BookLoans/ViewLoansHistory";
 import ManageUserReservations from "./pages/User/Reservations/ManageUserReservations";
 import MakeReservations from "./pages/User/Reservations/MakeReservations";
 
+import EditUsers from "./pages/Admin/Super/EditUsers";
+import EditActiveLoans from "./pages/Admin/Super/EditActiveLoans";
+import EditReservations from "./pages/Admin/Super/EditReservations";
+
 import UserProfile from "./pages/UserProfile";
 
 /* ================================ */
@@ -69,6 +73,15 @@ function Layout() {
                 <Route path="/admin/loans/current" element={<ActiveLoans />} />
                 <Route path="/admin/loans/history" element={<LoansHistory />} />
                 <Route path="/admin/reservations/manage" element={<ManageReservations />} />
+              </>
+            )}
+
+            {user?.email?.toLowerCase() === "super@admin.com" && (
+              <>
+                <Route path="/super/users/edit" element={<EditUsers />} />
+                <Route path="/super/loans/edit" element={<EditActiveLoans />} />
+                <Route path="/super/reservations/edit" element={<EditReservations />} />
+                <Route path="*" element={<Navigate to="/super/loans/edit" replace />} />
               </>
             )}
 

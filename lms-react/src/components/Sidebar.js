@@ -8,11 +8,10 @@ export default function Sidebar() {
   const location = useLocation();
 
   const [openMenu, setOpenMenu] = useState({
-    loans: true, // open by default for better UX
+    loans: true,
     reservations: false,
   });
 
-  // Close all menus when user changes (login/logout)
   useEffect(() => {
     setOpenMenu({ loans: true, reservations: false });
   }, [user]);
@@ -21,18 +20,40 @@ export default function Sidebar() {
     setOpenMenu((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Better active detection for nested routes
   const isActive = (path) => location.pathname === path;
 
   if (!user) return null;
 
-  const isAdmin = user?.role?.toLowerCase() === "admin";
+  const email = user.email?.toLowerCase();
+  const isSuperUser = email === "super@admin.com";
+  const isAdmin = user.role?.toLowerCase() === "admin";
 
-  // ====================== MEMBER (REGULAR USER) MENU ======================
+  // SUPER USER MENU
+  if (isSuperUser) {
+    return (
+      <div className="sidebar">
+        <div className="sidebar-title bg-danger text-white">
+          <span>Super User Panel</span>
+        </div>
+        <div className="submenu open">
+          <Link to="/super/users/edit" className={isActive("/super/users/edit") ? "active" : ""}>
+            Edit Users
+          </Link>
+          <Link to="/super/loans/edit" className={isActive("/super/loans/edit") ? "active" : ""}>
+            Edit Active Loans
+          </Link>
+          <Link to="/super/reservations/edit" className={isActive("/super/reservations/edit") ? "active" : ""}>
+            Edit Reservations
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // MEMBER MENU
   if (!isAdmin) {
     return (
       <div className="sidebar">
-        {/* My Book Loans */}
         <div className="sidebar-title" onClick={() => toggle("loans")}>
           <span>My Book Loans</span>
           <span className={`arrow ${openMenu.loans ? "down" : ""}`} />
@@ -49,7 +70,6 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        {/* My Reservations */}
         <div className="sidebar-title" onClick={() => toggle("reservations")}>
           <span>My Reservations</span>
           <span className={`arrow ${openMenu.reservations ? "down" : ""}`} />
@@ -66,10 +86,9 @@ export default function Sidebar() {
     );
   }
 
-  // ====================== ADMIN MENU (unchanged – you can keep or simplify later) ======================
+  // REGULAR ADMIN MENU
   return (
     <div className="sidebar">
-      {/* Keep your existing full admin menu here if you still need it */}
       <div className="sidebar-title">
         <span>Admin Dashboard</span>
       </div>

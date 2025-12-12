@@ -10,6 +10,7 @@ import com.ntuc.lms.model.User;
 import com.ntuc.lms.repository.MemberRepository;
 import com.ntuc.lms.repository.UserRepository;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 //service/MemberService.java
@@ -52,6 +53,25 @@ public class MemberService {
 	    // Allow renewal even if expired — this is intentional
 	    member.setJoinDate(LocalDate.now()); // resets expiry to +1 year from today
 	    member.setStatus(Member.Status.Active); // optional: force Active on renewal
+
+	    return memberRepository.save(member);
+	}
+	
+	@Transactional
+	public Member updateJoinDate(Integer userId, LocalDate newJoinDate) {
+	    Member member = memberRepository.findById(userId)
+	        .orElseThrow(() -> new RuntimeException("Member not found"));
+
+	    // Super User rule: can only move join date backward (past)
+	    LocalDate today = LocalDate.now();
+	    if (newJoinDate.isAfter(today)) {
+	        throw new IllegalArgumentException("Join date cannot be in the future");
+	    }
+
+	    member.setJoinDate(newJoinDate);
+	    
+	    // Optional: if membership was expired, reactivate it?
+	    // member.setStatus(Member.Status.Active);
 
 	    return memberRepository.save(member);
 	}

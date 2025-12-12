@@ -20,4 +20,8 @@ export const memberApi = {
   // Renew membership (used on login)
   renewMembership: (userId) =>
     axiosInstance.patch(`/members/${userId}/renew`),
+
+  // Super user join date update
+  updateJoinDate: (userId, dateString) =>
+    axiosInstance.patch(`/members/${userId}/join-date`, { joinDate: dateString }),
 };

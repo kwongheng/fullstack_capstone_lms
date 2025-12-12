@@ -35,4 +35,8 @@ export const borrowApi = {
   // Pay fine (auto-returns book if not returned yet)
   payFine: (borrowId) =>
     axiosInstance.patch(`/borrows/${borrowId}/pay-fine`),
+
+  // Super admin update loan dates
+  updateLoanDates: (borrowId, dates) =>
+  axiosInstance.patch(`/borrows/${borrowId}/super-edit-dates`, dates),
 };
