@@ -42,10 +42,11 @@ export default function ActiveLoans() {
 
   const members = Object.values(loansByMember);
 
-  // Apply filters
+  // Apply filters + calculate total fine per member
   const filteredMembers = useMemo(() => {
     let result = members;
 
+    // Search filter
     if (searchValue.trim()) {
       const term = searchValue.toLowerCase().trim();
       result = result
@@ -71,6 +72,7 @@ export default function ActiveLoans() {
         .filter(member => member.loans.length > 0);
     }
 
+    // Show only members with fines
     if (showFinesOnly) {
       result = result
         .map(member => ({
@@ -80,7 +82,17 @@ export default function ActiveLoans() {
         .filter(member => member.loans.length > 0);
     }
 
-    return result;
+    // Add total fine per member (for display + renew blocking logic)
+    return result.map(member => {
+      const totalFine = member.loans.reduce((sum, l) => sum + (l.fineAmount || 0), 0);
+      const hasHighFine = totalFine >= 10; // $10 or more → block renewals
+
+      return {
+        ...member,
+        totalFine,
+        hasHighFine,
+      };
+    });
   }, [members, searchField, searchValue, showFinesOnly]);
 
   const handleReturn = (borrowId) => {
@@ -169,8 +181,6 @@ export default function ActiveLoans() {
         <>
           <div className="row g-4">
             {filteredMembers.map((member) => {
-              const totalFine = member.loans.reduce((sum, l) => sum + (l.fineAmount || 0), 0);
-
               return (
                 <div key={member.memberId} className="col-12">
                   <div className="card shadow-sm">
@@ -179,11 +189,18 @@ export default function ActiveLoans() {
                         <User className="me-2" size={20} />
                         {member.memberId} - {member.fullName}
                       </h5>
-                      {totalFine > 0 && (
-                        <span className="badge bg-danger fs-6">
-                          <DollarSign size={16} /> Fine: ${totalFine.toFixed(2)}
-                        </span>
-                      )}
+                      <div>
+                        {member.totalFine > 0 && (
+                          <span className="badge bg-danger fs-6 me-2">
+                            <DollarSign size={16} /> Fine: ${member.totalFine.toFixed(2)}
+                          </span>
+                        )}
+                        {member.hasHighFine && (
+                          <span className="badge bg-warning text-dark">
+                            Renew Blocked (Fine ≥ $10)
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="card-body p-0">
                       <div className="table-responsive">
@@ -202,7 +219,12 @@ export default function ActiveLoans() {
                           <tbody>
                             {member.loans.map((loan) => {
                               const isOverdue = new Date(loan.dueDate) < new Date();
-                              const canRenew = loan.timesRenew < 2 && !isOverdue && (loan.fineAmount || 0) === 0;
+                              const canRenew =
+                                loan.timesRenew < 2 &&
+                                !isOverdue &&
+                                (loan.fineAmount || 0) === 0 &&
+                                !member.hasHighFine; // ← NEW: block if total fine ≥ $10
+
                               const canReturn = (loan.fineAmount || 0) === 0;
 
                               return (
@@ -224,7 +246,13 @@ export default function ActiveLoans() {
                                         className="btn btn-sm btn-outline-primary"
                                         onClick={() => handleRenew(loan.id)}
                                         disabled={!canRenew}
-                                        title="Renew (+14 days)"
+                                        title={
+                                          member.hasHighFine
+                                            ? "Renew blocked: member total fine ≥ $10"
+                                            : !canRenew
+                                            ? "Cannot renew (overdue, fined, or max renewals)"
+                                            : "Renew (+14 days)"
+                                        }
                                       >
                                         <RefreshCw size={14} />
                                       </button>

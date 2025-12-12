@@ -1,7 +1,8 @@
 // src/pages/Admin/BookReservations/ManageReservations.js
 import React, { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { reservationApi } from "../../../api/reservationApi";
+import { useReservations } from "../../../hooks/useReservations"; // ← keep import
 import { format, isAfter, subDays } from "date-fns";
 import Swal from "sweetalert2";
 import {
@@ -16,34 +17,35 @@ import {
 export default function ManageReservations() {
   const queryClient = useQueryClient();
 
+  const {
+    fulfillReservation,
+    cancelReservation,
+    isCancelling,
+  } = useReservations();
+
   // Search state
   const [searchField, setSearchField] = useState("all");
   const [searchValue, setSearchValue] = useState("");
 
-  // Fetch all reservations (admin)
+  // Admin: Fetch all reservations
   const { data: reservations = [], isLoading } = useQuery({
     queryKey: ["admin", "reservations", "all"],
     queryFn: () => reservationApi.getAllReservations().then((res) => res.data),
     staleTime: 1000 * 30,
   });
 
-  // Auto-delete reservations expired more than 15 days ago (on mount & when data changes)
+  // Auto-cleanup old expired reservations
   useEffect(() => {
-    const cleanupOldReservations = async () => {
-      const cutoffDate = subDays(new Date(), 15);
-      const toDelete = reservations.filter((r) => {
-        const expiryDate = new Date(r.expiryDate);
-        return (
-          !r.isFulfilled &&
-          expiryDate < new Date() &&
-          expiryDate < cutoffDate
-        );
-      });
+    const cleanupOld = async () => {
+      const cutoff = subDays(new Date(), 15);
+      const oldOnes = reservations.filter(
+        (r) => !r.fulfilled && new Date(r.expiryDate) < cutoff
+      );
 
-      if (toDelete.length > 0) {
+      if (oldOnes.length > 0) {
         try {
           await Promise.all(
-            toDelete.map((r) => reservationApi.cancelReservation(r.id))
+            oldOnes.map((r) => reservationApi.cancelReservation(r.id))
           );
           queryClient.invalidateQueries(["admin", "reservations", "all"]);
         } catch (err) {
@@ -52,27 +54,8 @@ export default function ManageReservations() {
       }
     };
 
-    if (reservations.length > 0) {
-      cleanupOldReservations();
-    }
+    if (reservations.length > 0) cleanupOld();
   }, [reservations, queryClient]);
-
-  // Mutations
-  const cancelMutation = useMutation({
-    mutationFn: reservationApi.cancelReservation,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["admin", "reservations", "all"]);
-      Swal.fire("Cancelled", "Reservation has been cancelled", "success");
-    },
-  });
-
-  const fulfillMutation = useMutation({
-    mutationFn: reservationApi.fulfillReservation,
-    onSuccess: () => {
-      queryClient.invalidateQueries(["admin", "reservations", "all"]);
-      Swal.fire("Fulfilled", "Reservation marked as fulfilled", "success");
-    },
-  });
 
   const handleCancel = (id, memberName, bookTitle) => {
     Swal.fire({
@@ -83,7 +66,7 @@ export default function ManageReservations() {
       confirmButtonText: "Yes, cancel it",
     }).then((result) => {
       if (result.isConfirmed) {
-        cancelMutation.mutate(id);
+        cancelReservation(id);
       }
     });
   };
@@ -91,18 +74,17 @@ export default function ManageReservations() {
   const handleFulfill = (id, memberName, bookTitle) => {
     Swal.fire({
       title: "Mark as Fulfilled?",
-      text: `Mark ${memberName}'s reservation for "${bookTitle}" as fulfilled?`,
+      text: `Confirm ${memberName} has picked up "${bookTitle}"?`,
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Yes, fulfill",
     }).then((result) => {
       if (result.isConfirmed) {
-        fulfillMutation.mutate(id);
+        fulfillReservation(id);
       }
     });
   };
 
-  // Filtered list
   const filteredReservations = useMemo(() => {
     if (!searchValue.trim()) return reservations;
 
@@ -137,16 +119,15 @@ export default function ManageReservations() {
     });
   }, [reservations, searchField, searchValue]);
 
-  // Stats
   const stats = useMemo(() => {
     const now = new Date();
     const active = filteredReservations.filter(
-      (r) => !r.isFulfilled && isAfter(new Date(r.expiryDate), now)
+      (r) => !r.fulfilled && isAfter(new Date(r.expiryDate), now)
     ).length;
     const expired = filteredReservations.filter(
-      (r) => !r.isFulfilled && new Date(r.expiryDate) < now
+      (r) => !r.fulfilled && new Date(r.expiryDate) < now
     ).length;
-    const fulfilled = filteredReservations.filter((r) => r.isFulfilled).length;
+    const fulfilled = filteredReservations.filter((r) => r.fulfilled).length;
 
     return { total: filteredReservations.length, active, expired, fulfilled };
   }, [filteredReservations]);
@@ -242,9 +223,9 @@ export default function ManageReservations() {
                       <tr
                         key={r.id}
                         className={
-                          isExpired && !r.isFulfilled
+                          isExpired && !r.fulfilled
                             ? "text-muted bg-light"
-                            : r.isFulfilled
+                            : r.fulfilled
                             ? "bg-success bg-opacity-10"
                             : ""
                         }
@@ -264,12 +245,12 @@ export default function ManageReservations() {
                         <td>{format(new Date(r.reservationDate), "dd MMM yyyy HH:mm")}</td>
                         <td>
                           {format(new Date(r.expiryDate), "dd MMM yyyy")}
-                          {isExpired && !r.isFulfilled && (
+                          {isExpired && !r.fulfilled && (
                             <span className="badge bg-danger ms-2">Expired</span>
                           )}
                         </td>
                         <td>
-                          {r.isFulfilled ? (
+                          {r.fulfilled ? (
                             <span className="badge bg-success">
                               <CheckCircle size={14} className="me-1" />
                               Fulfilled
@@ -285,11 +266,13 @@ export default function ManageReservations() {
                         </td>
                         <td>
                           <div className="btn-group" role="group">
-                            {!r.isFulfilled && (
+                            {!r.fulfilled && (
                               <button
                                 className="btn btn-sm btn-success"
-                                onClick={() => handleFulfill(r.id, fullName, r.book?.title)}
-                                disabled={fulfillMutation.isPending}
+                                onClick={() =>
+                                  handleFulfill(r.id, fullName, r.book?.title)
+                                }
+                                disabled={isCancelling}
                                 title="Mark as Fulfilled"
                               >
                                 <CheckCircle size={14} />
@@ -297,8 +280,10 @@ export default function ManageReservations() {
                             )}
                             <button
                               className="btn btn-sm btn-danger"
-                              onClick={() => handleCancel(r.id, fullName, r.book?.title)}
-                              disabled={cancelMutation.isPending}
+                              onClick={() =>
+                                handleCancel(r.id, fullName, r.book?.title)
+                              }
+                              disabled={isCancelling}
                               title="Cancel Reservation"
                             >
                               <Trash2 size={14} />
@@ -313,7 +298,6 @@ export default function ManageReservations() {
             </div>
           </div>
 
-          {/* Footer Summary */}
           <div className="card-footer bg-light">
             <div className="row text-center text-md-start small fw-bold">
               <div className="col-md-3 col-6">
