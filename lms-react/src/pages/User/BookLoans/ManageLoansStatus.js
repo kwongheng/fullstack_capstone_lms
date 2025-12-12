@@ -12,7 +12,7 @@ export default function ManageLoansStatus() {
   const [loans, setLoans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load active loans + recalculate fines — only once per visit
+  // Load active loans + recalculate fines
   useEffect(() => {
     const loadAndCalculate = async () => {
       if (!user?.id) return;
@@ -21,14 +21,12 @@ export default function ManageLoansStatus() {
         const res = await borrowApi.getMyActiveBorrows(user.id);
         let activeLoans = res.data;
 
-        // Recalculate fines
         for (const loan of activeLoans) {
           await borrowApi.calculateFine(loan.id).catch(() => {});
         }
 
-        // Fetch updated data with fresh fines
         const updatedRes = await borrowApi.getMyActiveBorrows(user.id);
-        const loansWithFines = updatedRes.data;
+        const loansWithFines = updatedRes.data; // ← Fixed: typo removed
 
         setLoans(
           loansWithFines.map(loan => ({
@@ -64,7 +62,7 @@ export default function ManageLoansStatus() {
     );
   };
 
-  // Mutations — fixed to accept borrowId correctly
+  // Mutations
   const returnMutation = useMutation({
     mutationFn: (borrowId) => borrowApi.returnBook(borrowId),
     onSuccess: (_, borrowId) => {
@@ -135,9 +133,14 @@ export default function ManageLoansStatus() {
   }
 
   const now = new Date();
+
+  // Calculate total outstanding fine (excluding just-returned loans)
   const totalFine = loans
-    .filter(l => !l.justReturned && (l.fineAmount || 0) > 0)
+    .filter(l => !l.justReturned)
     .reduce((sum, l) => sum + (l.fineAmount || 0), 0);
+
+  // New rule: if total fine ≥ $10 → disable renew for ALL loans until paid
+  const hasHighFine = totalFine >= 10;
 
   return (
     <div className="p-4">
@@ -149,7 +152,18 @@ export default function ManageLoansStatus() {
           const overdue = due < now;
           const hasFine = (loan.fineAmount || 0) > 0;
           const renewals = loan.timesRenew || 0;
-          const canRenew = renewals < 2 && !hasFine && !loan.justReturned;
+
+          // Renew is blocked if:
+          // - max renewals reached OR
+          // - this loan has fine OR
+          // - already returned OR
+          // - total fine across all loans ≥ $10
+          const canRenew =
+            renewals < 2 &&
+            !hasFine &&
+            !loan.justReturned &&
+            !hasHighFine;
+
           const canReturn = !hasFine && !loan.justReturned;
 
           return (
@@ -186,6 +200,11 @@ export default function ManageLoansStatus() {
                       <span className={hasFine ? "text-danger fw-bold" : "text-success"}>
                         ${Number(loan.fineAmount || 0).toFixed(2)}
                       </span>
+                      {hasHighFine && (
+                        <span className="text-danger ms-2">
+                          (Renew blocked — total fine ≥ $10)
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -196,6 +215,15 @@ export default function ManageLoansStatus() {
                       className="btn btn-sm btn-outline-primary"
                       onClick={() => renewMutation.mutate(loan.id)}
                       disabled={!canRenew || renewMutation.isPending}
+                      title={
+                        hasHighFine
+                          ? "Renew disabled: total fine is $10 or more"
+                          : renewals >= 2
+                          ? "Max 2 renewals reached"
+                          : hasFine
+                          ? "Cannot renew with outstanding fine"
+                          : "Renew loan"
+                      }
                     >
                       <RefreshCw size={16} className="me-1" /> Renew
                     </button>
@@ -228,6 +256,7 @@ export default function ManageLoansStatus() {
           <div className="card-body text-center bg-danger bg-opacity-10">
             <h4 className="text-danger mb-3">
               Total Outstanding Fine: <strong>${totalFine.toFixed(2)}</strong>
+              {hasHighFine && " — Renewals blocked until paid"}
             </h4>
             <button
               className="btn btn-danger btn-lg"
