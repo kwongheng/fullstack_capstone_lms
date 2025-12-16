@@ -1,4 +1,4 @@
-// CorsConfig.java
+// config/CorsConfig.java
 package com.ntuc.lms.config;
 
 import org.springframework.context.annotation.Configuration;
