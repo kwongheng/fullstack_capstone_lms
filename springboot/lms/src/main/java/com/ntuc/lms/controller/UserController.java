@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -16,9 +17,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ntuc.lms.model.User;
 import com.ntuc.lms.services.UserService;
+import com.ntuc.lms.services.JwtService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
 	private final UserService userService;
+	private final JwtService jwtService;
 
 	@GetMapping
 	public ResponseEntity<List<User>> getAllUsers() {
@@ -67,20 +71,21 @@ public class UserController {
 
 	    if (userOpt.isPresent()) {
 	        User user = userOpt.get();
-	        LoginResponse response = new LoginResponse(
-	            user.getId(),
-	            user.getEmail(),
-	            user.getFullName(),
-	            user.getRole().name()  // returns "Admin" or "Member" as String
+	        String token = jwtService.generateToken(user);
+	        AuthResponse authResponse = new AuthResponse(
+	                token,
+	                user.getId(),
+	                user.getEmail(),
+	                user.getFullName(),
+	                user.getRole().name()
 	        );
-	        return ResponseEntity.ok(response);
+	        return ResponseEntity.ok(authResponse);
 	    } else {
-	        return ResponseEntity
-	            .status(HttpStatus.UNAUTHORIZED)
-	            .body("Invalid email or password");
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+	                .body(Map.of("error", "Invalid email or password"));
 	    }
 	}
-
+	
 	// Simple DTOs – add as inner records or separate files
 	record LoginRequest(String email, String password) {}
 	record LoginResponse(Integer id, String email, String fullName, String role) {}
@@ -99,7 +104,16 @@ public class UserController {
 
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
-		userService.deleteUser(id);
-		return ResponseEntity.noContent().build();
+	    try {
+	        userService.deleteUser(id);
+	        return ResponseEntity.noContent().build();
+	    } catch (DataIntegrityViolationException e) {
+	        throw new ResponseStatusException(
+	            HttpStatus.CONFLICT,
+	            "Cannot delete this user because they have borrow history or active reservations."
+	        );
+	    }
 	}
+	
+	record AuthResponse(String token, Integer id, String email, String fullName, String role) {}
 }
