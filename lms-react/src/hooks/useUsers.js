@@ -8,7 +8,7 @@ export const useUsers = () => {
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["users"],
-    queryFn: () => userApi.getAllUsers().then(res => res.data),
+    queryFn: () => userApi.getAllUsers().then((res) => res.data),
   });
 
   const createMutation = useMutation({
@@ -38,8 +38,18 @@ export const useUsers = () => {
   const deleteMutation = useMutation({
     mutationFn: userApi.deleteUser,
     onSuccess: () => {
-      queryClient.invalidateQueries(["users"]);
-      Swal.fire("Deleted", "User removed", "success");
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      Swal.fire("Success", "User deleted successfully", "success");
+    },
+    onError: (error) => {
+      const message = error.response?.data?.message || error.response?.data || "Failed to delete user";
+
+      Swal.fire({
+        icon: "error",
+        title: "Cannot Delete User",
+        text: message,
+        confirmButtonText: "OK",
+      });
     },
   });
 

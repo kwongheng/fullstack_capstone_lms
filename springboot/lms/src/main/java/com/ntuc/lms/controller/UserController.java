@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ntuc.lms.model.User;
 import com.ntuc.lms.services.UserService;
@@ -84,26 +86,6 @@ public class UserController {
 	    }
 	}
 	
-//	@PostMapping("/login")
-//	public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-//	    Optional<User> userOpt = userService.findByEmail(request.email());
-//
-//	    if (userOpt.isPresent()) {
-//	        User user = userOpt.get();
-//	        LoginResponse response = new LoginResponse(
-//	            user.getId(),
-//	            user.getEmail(),
-//	            user.getFullName(),
-//	            user.getRole().name()  // returns "Admin" or "Member" as String
-//	        );
-//	        return ResponseEntity.ok(response);
-//	    } else {
-//	        return ResponseEntity
-//	            .status(HttpStatus.UNAUTHORIZED)
-//	            .body("Invalid email or password");
-//	    }
-//	}
-
 	// Simple DTOs – add as inner records or separate files
 	record LoginRequest(String email, String password) {}
 	record LoginResponse(Integer id, String email, String fullName, String role) {}
@@ -122,8 +104,15 @@ public class UserController {
 
 	@DeleteMapping("/{id}")
 	public ResponseEntity<Void> deleteUser(@PathVariable Integer id) {
-		userService.deleteUser(id);
-		return ResponseEntity.noContent().build();
+	    try {
+	        userService.deleteUser(id);
+	        return ResponseEntity.noContent().build();
+	    } catch (DataIntegrityViolationException e) {
+	        throw new ResponseStatusException(
+	            HttpStatus.CONFLICT,
+	            "Cannot delete this user because they have borrow history or active reservations."
+	        );
+	    }
 	}
 	
 	record AuthResponse(String token, Integer id, String email, String fullName, String role) {}
