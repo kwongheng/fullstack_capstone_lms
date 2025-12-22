@@ -16,11 +16,13 @@ VAULT_ROOT_TOKEN=myroot
 # in the same folder run
 docker compose up -d
 
-### to verify, shell to the container
+# to verify, shell to the container
 docker exec -it <vault name> sh
 
 vault read database/creds/my-app-role
-
 # or use URL http://localhost:8200/
+
+# at the end of day
+docker compose down
 ```
 

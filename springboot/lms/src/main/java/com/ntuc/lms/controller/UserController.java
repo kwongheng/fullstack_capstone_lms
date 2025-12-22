@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ntuc.lms.model.User;
 import com.ntuc.lms.services.UserService;
+import com.ntuc.lms.services.JwtService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
 	private final UserService userService;
+	private final JwtService jwtService;
 
 	@GetMapping
 	public ResponseEntity<List<User>> getAllUsers() {
@@ -67,19 +69,40 @@ public class UserController {
 
 	    if (userOpt.isPresent()) {
 	        User user = userOpt.get();
-	        LoginResponse response = new LoginResponse(
-	            user.getId(),
-	            user.getEmail(),
-	            user.getFullName(),
-	            user.getRole().name()  // returns "Admin" or "Member" as String
+	        String token = jwtService.generateToken(user);
+	        AuthResponse authResponse = new AuthResponse(
+	                token,
+	                user.getId(),
+	                user.getEmail(),
+	                user.getFullName(),
+	                user.getRole().name()
 	        );
-	        return ResponseEntity.ok(response);
+	        return ResponseEntity.ok(authResponse);
 	    } else {
-	        return ResponseEntity
-	            .status(HttpStatus.UNAUTHORIZED)
-	            .body("Invalid email or password");
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+	                .body(Map.of("error", "Invalid email or password"));
 	    }
 	}
+	
+//	@PostMapping("/login")
+//	public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+//	    Optional<User> userOpt = userService.findByEmail(request.email());
+//
+//	    if (userOpt.isPresent()) {
+//	        User user = userOpt.get();
+//	        LoginResponse response = new LoginResponse(
+//	            user.getId(),
+//	            user.getEmail(),
+//	            user.getFullName(),
+//	            user.getRole().name()  // returns "Admin" or "Member" as String
+//	        );
+//	        return ResponseEntity.ok(response);
+//	    } else {
+//	        return ResponseEntity
+//	            .status(HttpStatus.UNAUTHORIZED)
+//	            .body("Invalid email or password");
+//	    }
+//	}
 
 	// Simple DTOs – add as inner records or separate files
 	record LoginRequest(String email, String password) {}
@@ -102,4 +125,6 @@ public class UserController {
 		userService.deleteUser(id);
 		return ResponseEntity.noContent().build();
 	}
+	
+	record AuthResponse(String token, Integer id, String email, String fullName, String role) {}
 }
