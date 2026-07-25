@@ -76,8 +76,14 @@ lms-project/
 
 Check REST API document in docs folder.
 
+### TO DOs
+- Create a backup copy of MySQL database and upload here
+- Create SQL script to create the MySQL tables used in this project
+
 ### Future Enhancements
 
+- Time limit role based dynamic user access to MySQL databse using vault [DONE]
+-- Read [VAULT_SETUP.MD](./springboot/VAULT_SETUP.MD)
 - Authentication & Authorization (Spring Security + JWT)
 - Pagination & advanced filtering
 - Role-based access (Admin vs Member)
