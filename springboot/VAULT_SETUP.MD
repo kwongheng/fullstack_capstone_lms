@@ -2,6 +2,7 @@
 - To improve security access to mysql database, vault is setup to keep secrets
 - the codes uses hashicorp to generate secrets using dynamic user roles to access MySQL
 - docker compoose file is setup to persist the database connection secrets since we are running in dev mode which means the secrets don't persist over shutdown.
+- Ensure the MySQL database is running before you start your docker image
 
 ## Steps
 
