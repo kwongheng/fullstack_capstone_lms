@@ -83,7 +83,7 @@ Check REST API document in docs folder.
 ### Future Enhancements
 
 - Time limit role based dynamic user access to MySQL databse using vault [DONE]
--- Read [VAULT_SETUP.MD](./springboot/VAULT_SETUP.MD)
+  - Read [VAULT_SETUP.MD](./springboot/VAULT_SETUP.MD)
 - Authentication & Authorization (Spring Security + JWT)
 - Pagination & advanced filtering
 - Role-based access (Admin vs Member)
