@@ -77,7 +77,7 @@ lms-project/
 Check REST API document in docs folder.
 
 ### TO DOs
-- Rename all tables to plural, I realized in my rush, I named all tables as single
+- Rename all tables to plural, I realized in my rush, I named all tables as singular
 - Create a backup copy of MySQL database and upload here
 - Create SQL script to create the MySQL tables used in this project
 
